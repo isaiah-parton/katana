@@ -11,7 +11,8 @@ A simple 2D signed-distance function renderer for my apps and games (and maybe y
   - [x] Quadratic and cubic beziers
   - [x] Arbitrary polygons
   - [x] Quad paths (has artifacts)
-  - [x] Font glyphs and basic text
+  - [x] Font glyphs (using multi-channel sdf fonts)
+  - [x] Basic text
   - [ ] Advanced text layout
 - Fill styles:
   - [x] Solid color
