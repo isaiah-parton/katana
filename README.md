@@ -1,6 +1,8 @@
 ## what is this?
 A simple 2D signed-distance function renderer for my apps and games (and maybe yours?)
 
+i'm gonna make docs for it soon
+
 ## what can it do?
 - Shapes:
   - [x] Boxes with rounded corners
