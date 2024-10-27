@@ -4,6 +4,7 @@ A simple 2D signed-distance function renderer for my apps and games (and maybe y
 i'm gonna make docs for it soon
 
 ## what can it do?
+- [x] Transforms
 - Shapes:
   - [x] Boxes with rounded corners
   - [x] Drop shadows for said boxes
@@ -22,3 +23,4 @@ i'm gonna make docs for it soon
   - [x] Radial gradient
   - [x] A wierd simplex noise gradient that I like
   - [ ] User textures
+  - [ ] Poly-color gradients
