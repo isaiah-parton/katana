@@ -180,6 +180,10 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo -= shape.width
 		box.hi += shape.width
 	}
+
+	box.lo -= 10
+	box.hi += 10
+
 	return box
 }
 

@@ -59,6 +59,8 @@ Paint_Kind :: enum u32 {
 	// Do I really have to explain?
 	Linear_Gradient,
 	Radial_Gradient,
+	// SDF Visualizer
+	Distance_Field,
 }
 
 Stroke_Justify :: enum {
@@ -190,21 +192,20 @@ add_paint :: proc(paint: Paint) -> u32 {
 	return index
 }
 
-// This paint will be used by all paints added after the call
+// Sets the default paint index for new shapes
 set_paint :: proc(paint: u32) {
 	core.paint = paint
 }
 
+set_shape :: proc(shape: u32) {
+	core.shape = shape
+}
 
-
+@(private)
 add_xform :: proc(xform: Matrix) -> u32 {
 	index := u32(len(core.renderer.xforms.data))
 	append(&core.renderer.xforms.data, xform)
 	return index
-}
-
-set_shape :: proc(shape: u32) {
-	core.shape = shape
 }
 
 // Append a vertex and return it's index
@@ -226,8 +227,8 @@ add_indices :: proc(i: ..Index) {
 	core.current_draw_call.elem_count += len(i)
 }
 
-next_vertex_index :: proc() -> u32 {
-	return u32(len(core.renderer.vertices))
+next_vertex_index :: proc() -> Index {
+	return Index(len(core.renderer.vertices))
 }
 
 current_matrix :: proc() -> Maybe(Matrix) {
@@ -238,7 +239,7 @@ current_matrix :: proc() -> Maybe(Matrix) {
 }
 
 push_matrix :: proc() {
-	push_stack(&core.matrix_stack, current_matrix().? or_else matrix_identity())
+	push_stack(&core.matrix_stack, current_matrix().? or_else identity_matrix())
 	core.current_matrix = &core.matrix_stack.items[core.matrix_stack.height - 1]
 }
 
@@ -247,27 +248,23 @@ pop_matrix :: proc() {
 	core.current_matrix = &core.matrix_stack.items[max(0, core.matrix_stack.height - 1)]
 }
 
-matrix_identity :: proc() -> Matrix {
+identity_matrix :: proc() -> Matrix {
 	return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 }
 
-translate_matrix :: proc(x, y, z: f32) {
-	core.current_matrix^ *= linalg.matrix4_translate([3]f32{x, y, z})
+translate :: proc(vector: [2]f32) {
+	core.current_matrix^ *= linalg.matrix4_translate([3]f32{vector.x, vector.y, 0})
 }
 
-rotate_matrix :: proc(angle, x, y, z: f32) {
-	core.current_matrix^ *= linalg.matrix4_rotate(angle, [3]f32{x, y, z})
-}
-
-rotate_matrix_z :: proc(angle: f32) {
+rotate :: proc(angle: f32) {
 	cosres := math.cos(angle)
 	sinres := math.sin(angle)
 	rotation_matrix: Matrix = {cosres, -sinres, 0, 0, sinres, cosres, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 	core.current_matrix^ *= rotation_matrix
 }
 
-scale_matrix :: proc(x, y, z: f32) {
-	core.current_matrix^ *= linalg.matrix4_scale([3]f32{x, y, z})
+scale :: proc(factor: [2]f32) {
+	core.current_matrix^ *= linalg.matrix4_scale([3]f32{factor.x, factor.y, 1})
 }
 
 // Lets the user provide a custom sampler descriptor for the user texture

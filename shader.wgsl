@@ -100,7 +100,7 @@ fn sd_subtract(d1: f32, d2: f32) -> f32 {
 }
 
 fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
-	return (p.x * p.x + p.y * p.y) - (r * r) + 0.5;
+	return length(p) - r + 0.5;
 }
 
 fn sd_pie(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, r: f32) -> f32 {
@@ -156,7 +156,7 @@ fn sd_bezier_approx(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f
   return length(get_distance_vector(A-p, B-p, C-p));
 }
 
-fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32> ) -> f32 {
+fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let a = B - A;
   let b = A - 2.0*B + C;
   let c = a * 2.0;
@@ -170,7 +170,7 @@ fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32> ) -> f32 {
   let p3 = p*p*p;
   let q = kx*(2.0*kx*kx + -3.0*ky) + kz;
   var h = q*q + 4.0*p3;
-  if (h >= 0.0) {
+  if (h > 0.0) {
     h = sqrt(h);
     let x = (vec2<f32>(h,-h)-q)/2.0;
     let uv = sign(x)*pow(abs(x), vec2<f32>(1.0/3.0));
@@ -250,7 +250,7 @@ fn bezierTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> bool {
   let det = v0.x * v1.y - v1.x * v0.y;
   let s = (v2.x * v1.y - v1.x * v2.y) / det;
   let t = (v0.x * v2.y - v2.x * v0.y) / det;
-  if(s < 0.0 || t < 0.0 || (1.0 - s - t) < 0.0) {
+  if(s < 0.0 || t < 0.0 || (1.0 - s - t) <= 0.0) {
     return false; // outside triangle
   }
   // Transform to canonical coordinte space.
@@ -315,7 +315,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 		case 7u: {
 			var s = 1.0;
 			let filterWidth = 1.0;
-      for(var i = 0; i < i32(shape.count); i = i + 1) {
+      for (var i = 0; i < i32(shape.count); i = i + 1) {
       	let j = i32(shape.start) + 3 * i;
         let a = cvs.cvs[j];
         let b = cvs.cvs[j + 1];
@@ -325,20 +325,23 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
         let xmin = p.x - filterWidth;
         // If the hull is far enough away, don't bother with
         // a sdf.
-        if(a.x > xmax && b.x > xmax && c.x > xmax) {
+        if (a.x > xmax && b.x > xmax && c.x > xmax) {
           skip = true;
-        } else if(a.x < xmin && b.x < xmin && c.x < xmin) {
+        } else if (a.x < xmin && b.x < xmin && c.x < xmin) {
           skip = true;
         }
-        if(!skip) {
-          d = min(d, sd_bezier(p, a, b, c) + 0.25);
+        if (!skip) {
+        	let bd = sd_bezier(p, a, b, c) + 0.5;
+          if (bd >= 0.0) {
+          	d = min(d, bd);
+          }
         }
-        if(lineTest(p, a, c)) {
+        if (lineTest(p, a, c)) {
           s = -s;
         }
         // Flip if inside area between curve and line.
-        if(!skip) {
-          if(bezierTest(p, a, b, c)) {
+        if (!skip) {
+          if (bezierTest(p, a, b, c)) {
             s = -s;
           }
         }
@@ -496,15 +499,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		}
 		// Linear Gradient
 		case 5u: {
-			let d = paint.cv1 - paint.cv0;
-			var det = 1.0 / ((d.x * d.x) - (-d.y * d.y));
+			let dir = paint.cv1 - paint.cv0;
+			var det = 1.0 / ((dir.x * dir.x) - (-dir.y * dir.y));
 			let xform = mat2x2<f32>(
-				det * d.x, det * -d.y,
-				det * d.y, det * d.x,
+				det * dir.x, det * -dir.y,
+				det * dir.y, det * dir.x,
 			);
 	    var t = clamp((xform * (in.p - paint.cv0)).x, 0.0, 1.0);
 			// Dithering
-			let df = length(d / uniforms.size) / 64.0;
+			let df = length(dir / uniforms.size) / 64.0;
 			t += mix(-df, df, random(in.p));
 			// Mix color output
 	    out = mix(paint.col0, paint.col1, t) * in.col;
@@ -521,6 +524,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05;
 			// Mix color output
 	  	out = mix(inner_color, outer_color, t + mix(-df, df, random(in.p)));
+		}
+		// Distance field
+		case 7u: {
+			if (d > 0) {
+				out = vec4<f32>(d / 10, 0.0, 0.0, 1.0);
+			} else {
+				out = vec4<f32>(0.0, 0.0, -d / 10, 1.0);
+			}
+			// out *= 1.0 - exp(-6.0*abs(d));
+			out = vec4<f32>(out.xyz * 0.8 + 0.2 * cos(0.5 * (d + uniforms.time * 5)), 1.0);
+			out = mix(out, vec4<f32>(1.0), 1.0 - smoothstep(0.0, 0.5, -(d / 10.0)));
 		}
 		// Default case
 		default: {

@@ -13,6 +13,7 @@ Core :: struct {
 	// Timing
 	start_time:           time.Time,
 	frame_time:           time.Time,
+	delta_time:						f32,
 	fps:									f32,
 	// Text layout
 	text_glyphs:          [dynamic]Text_Glyph,
@@ -62,6 +63,7 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface, surface_format: wgpu.T
 		},
 	)
 	core.start_time = time.now()
+	core.frame_time = core.start_time
 }
 
 // Call when you're done using vgo
@@ -74,7 +76,8 @@ get_fps :: proc() -> f32 {
 }
 
 new_frame :: proc() {
-	core.fps = f32(1.0 / time.duration_seconds(time.since(core.frame_time)))
+	core.delta_time = f32(time.duration_seconds(time.since(core.frame_time)))
+	core.fps = 1.0 /  core.delta_time
 	core.frame_time = time.now()
 
 	clear(&core.renderer.vertices)
@@ -95,8 +98,12 @@ new_frame :: proc() {
 	push_matrix()
 }
 
-get_seconds :: proc() -> f32 {
+run_time :: proc() -> f32 {
 	return f32(time.duration_seconds(time.since(core.start_time)))
+}
+
+frame_time :: proc() -> f32 {
+	return core.delta_time
 }
 
 get_atlas_box :: proc(size: [2]f32) -> Box {

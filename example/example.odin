@@ -118,16 +118,28 @@ main :: proc() {
 		"fonts/remixicon.json",
 	)
 
-	TEXT_SIZES :: [?]f32{12, 14, 16, 18, 20, 24, 28, 36, 42, 48, 56, 64, 72, 96, 112, 144}
+	animate: bool = true
+	animation_time: f32 = 0.1
 
+	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
 
 	loop: for {
 		time.sleep(time.Millisecond * 16)
 
+		if animate {
+			animation_time += vgo.frame_time()
+		}
+
 		event: sdl2.Event
 		for sdl2.PollEvent(&event) {
 			#partial switch event.type {
+			case .KEYDOWN:
+				if event.key.keysym.sym == .A {
+					animate = !animate
+				}
+			case .MOUSEMOTION:
+				mouse_point = {f32(event.motion.x), f32(event.motion.y)}
 			case .QUIT:
 				break loop
 			case .WINDOWEVENT:
@@ -144,55 +156,42 @@ main :: proc() {
 
 		vgo.new_frame()
 
-		vgo.fill_text(
-			fmt.tprintf("FPS: %.1f\nwow^", vgo.get_fps()),
-			font_24px,
-			0,
-			20,
-			vgo.Color{0, 255, 0, 255},
-		)
+		GRADIENT_COLORS :: [2]vgo.Color{
+			{255, 202, 32, 255},
+			{255, 110, 32, 255},
+		}
 
-		shape := vgo.make_pie({100, 200}, 0, 2, 50)
-		shape.outline = .Glow
-		shape.width = 20
-		vgo.draw_shape(shape, vgo.Color(255))
+		{
+			box := vgo.Box{100, 180}
+			vgo.fill_box(box, vgo.Paint{kind = .Distance_Field}, {10, 30, 30, 10})
+		}
 
-		box := vgo.Box{{120, 400}, {230, 430}}
-		vgo.fill_box(box, vgo.make_linear_gradient(
-			box.lo,
-			{box.lo.x, box.hi.y},
-			vgo.fade({20, 21, 24, 255}, 0.25),
-			vgo.fade({20, 21, 24, 255}, 0.1),
-		), radius = 5)
-		vgo.stroke_box(
-			box,
-			1,
-			vgo.make_linear_gradient(
-				box.lo,
-				{box.lo.x, box.hi.y},
-				vgo.fade({20, 21, 24, 255}, 1),
-				vgo.fade({20, 21, 24, 255}, 0),
-			), radius = 5,
-		)
+		{
+			box := vgo.Box{{100, 200}, {180, 280}}
+			vgo.fill_circle((box.lo + box.hi) / 2, 40, vgo.Paint{kind = .Distance_Field})
+		}
 
-		vgo.fill_pie(
-			canvas_size / 2,
-			math.PI / 2,
-			math.PI / 2 + vgo.get_seconds() * 0.5,
-			50,
-			vgo.Color{255, 0, 0, 50},
-		)
-		vgo.stroke_pie(
-			canvas_size / 2,
-			math.PI / 2,
-			math.PI / 2 + vgo.get_seconds() * 0.5,
-			50,
-			1,
-			vgo.Color{255, 0, 0, 255},
-		)
-		vgo.draw_check(canvas_size / 2, 10, 255)
-		vgo.draw_spinner(canvas_size / 2 + {0, 200}, 10, 255)
-		vgo.draw_cubic_bezier(100, {200, 100}, {200, 200}, {300, 200}, 1, {255, 0, 255, 255})
+		{
+			box := vgo.Box{{100, 300}, {180, 380}}
+			center := (box.lo + box.hi) / 2
+			radius := (box.hi - box.lo) / 2
+			sides := 5
+			vgo.begin_path()
+			// for i := sides; i >= 0; i -= 1 {
+			// 	a := math.TAU * (f32(i) / f32(sides)) + animation_time * 0.5
+			// 	p := center + [2]f32{math.cos(a), math.sin(a)} * radius
+			// 	if i == 5 {
+			// 		vgo.move_to(p)
+			// 	} else {
+			// 		b := math.TAU * (f32(i) / f32(sides)) - (math.TAU / f32(sides * 2)) + animation_time * 0.5
+			// 		vgo.quadratic_bezier_to(center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20), p)
+			// 	}
+			// }
+			vgo.move_to(box.lo)
+			vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi + {-1, 0})
+			vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
+			vgo.fill_path(vgo.Paint{kind = .Distance_Field})
+		}
 
 		vgo.present()
 
