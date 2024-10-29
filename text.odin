@@ -38,29 +38,32 @@ make_text :: proc(content: string, font: Font, size: f32, line_limit: f32 = math
 
 measure_text :: proc(text: string, font: Font, size: f32, line_limit: f32 = math.F32_MAX) -> [2]f32 {
 	text_size: [2]f32
-	size := size / font.ascend
 	text_size.y += font.descend * size
+
+	line_width: f32
 	line_height := font.line_height * size
 	for r in text {
 		if r == '\n' {
-			text_size.x = 0
+			text_size.x = max(text_size.x, line_width)
+			line_width = 0
 			text_size.y += line_height
 		}
 		glyph := get_font_glyph(font, r) or_continue
 		advance := glyph.advance * size
-		if text_size.x + advance > line_limit {
-			text_size.x = 0
+		if line_width + advance > line_limit {
+			text_size.x = max(text_size.x, line_width)
+			line_width = 0
 			text_size.y += line_height
 		}
-		text_size.x += advance
+		line_width += advance
 	}
+	text_size.x = max(text_size.x, line_width)
 	text_size.y += line_height
 	return text_size
 }
 
 fill_text :: proc(text: string, font: Font, origin: [2]f32, size: f32, paint: Paint_Option, line_limit: f32 = math.F32_MAX) -> [2]f32 {
 	offset: [2]f32
-	size := size / font.ascend
 	offset.y += font.descend * size
 	line_height := font.line_height * size
 	for r in text {
@@ -97,9 +100,11 @@ draw_glyph :: proc(
 	)
 	vertex_color := paint.(Color) or_else 255
 	paint_index := paint_index_from_option(paint)
+
+	box := Box{origin + glyph.bounds.lo * size, origin + glyph.bounds.hi * size}
 	a := add_vertex(
 		Vertex {
-			pos = origin + glyph.bounds.lo * size,
+			pos = box.lo,
 			uv = glyph.source.lo / core.atlas_size,
 			col = vertex_color,
 			shape = shape_index,
@@ -108,7 +113,7 @@ draw_glyph :: proc(
 	)
 	b := add_vertex(
 		Vertex {
-			pos = origin + {glyph.bounds.hi.x, glyph.bounds.lo.y} * size,
+			pos = {box.hi.x, box.lo.y},
 			uv = [2]f32{glyph.source.hi.x, glyph.source.lo.y} / core.atlas_size,
 			col = vertex_color,
 			shape = shape_index,
@@ -117,7 +122,7 @@ draw_glyph :: proc(
 	)
 	c := add_vertex(
 		Vertex {
-			pos = origin + glyph.bounds.hi * size,
+			pos = box.hi,
 			uv = glyph.source.hi / core.atlas_size,
 			col = vertex_color,
 			shape = shape_index,
@@ -126,7 +131,7 @@ draw_glyph :: proc(
 	)
 	d := add_vertex(
 		Vertex {
-			pos = origin + {glyph.bounds.lo.x, glyph.bounds.hi.y} * size,
+			pos = {box.lo.x, box.hi.y},
 			uv = [2]f32{glyph.source.lo.x, glyph.source.hi.y} / core.atlas_size,
 			col = vertex_color,
 			shape = shape_index,

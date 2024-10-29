@@ -559,9 +559,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			let outer_color = paint.col1 * in.col;
 			// Dithering
 			let diff = abs(outer_color - inner_color);
-			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05;
 			// Mix color output
-	  	out = mix(inner_color, outer_color, t + mix(-df, df, random(in.p)));
+			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05 * mix(inner_color.a, outer_color.a, t);
+	  	out = mix(inner_color, outer_color, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
 		}
 		// Distance field
 		case 7u: {
@@ -580,7 +580,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		}
 	}
 
-	out.a *= (1.0 - max(d, 0.0));
+	out.a *= 1.0 - d;
 
   return out;
 }

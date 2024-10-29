@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:fmt"
 import "core:math"
 import "core:math/linalg"
+import "core:math/ease"
 import "core:time"
 import "vendor:sdl2"
 import "vendor:wgpu"
@@ -120,12 +121,14 @@ main :: proc() {
 
 	animate: bool = true
 	animation_time: f32 = 0.1
+	page: int
+	PAGE_COUNT :: 3
 
 	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
 
 	loop: for {
-		time.sleep(time.Millisecond * 16)
+		// time.sleep(time.Millisecond * 16)
 
 		if animate {
 			animation_time += vgo.frame_time()
@@ -135,8 +138,14 @@ main :: proc() {
 		for sdl2.PollEvent(&event) {
 			#partial switch event.type {
 			case .KEYDOWN:
-				if event.key.keysym.sym == .A {
+				#partial switch event.key.keysym.sym {
+				case .A:
 					animate = !animate
+				case .LEFT:
+					page -= 1
+					if page < 0 do page = PAGE_COUNT - 1
+				case .RIGHT:
+					page = (page + 1) % PAGE_COUNT
 				}
 			case .MOUSEMOTION:
 				mouse_point = {f32(event.motion.x), f32(event.motion.y)}
@@ -158,147 +167,291 @@ main :: proc() {
 
 		GRADIENT_COLORS :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
 
-		layout := vgo.Box{100, canvas_size - 100}
-		cut_box :: proc(box: ^vgo.Box, size: f32) -> vgo.Box {
-			if box.hi.y - box.lo.y < size {
-				box.lo.y = 100
-				box.lo.x += (box.hi.x - box.lo.x) * 0.5
+		Layout :: struct {
+			bounds, box: vgo.Box,
+		}
+		layout := Layout {
+			bounds = {100, canvas_size - 100},
+			box    = {100, canvas_size - 100},
+		}
+
+		COLUMNS :: 2
+		ROWS :: 4
+		SIZE :: 40
+
+		get_box :: proc(layout: ^Layout) -> vgo.Box {
+			size := (layout.bounds.hi - layout.bounds.lo) / [2]f32{COLUMNS, ROWS}
+			if layout.box.lo.y + size.y > layout.box.hi.y {
+				layout.box.lo.x += size.x
+				layout.box.lo.y = layout.bounds.lo.y
 			}
-			box.lo.y += size
-			result := vgo.Box{{box.lo.x, box.lo.y - size}, {box.lo.x + size, box.lo.y}}
-			size := result.hi - result.lo
-			result.lo += size * 0.25
-			result.hi -= size * 0.25
+			result := vgo.Box{layout.box.lo, layout.box.lo + size}
+			layout.box.lo.y += size.y
 			return result
 		}
-		layout_size := canvas_size.y / 5
 
-		first_shape: u32
-		{
-			box := cut_box(&layout, layout_size)
-			center := (box.lo + box.hi) / 2
-			vgo.push_matrix()
-			defer vgo.pop_matrix()
-			vgo.translate(center)
-			vgo.rotate(math.sin(animation_time * 2) * 0.15)
-			vgo.translate(-center)
-			vgo.fill_box(
-				box,
-				vgo.make_linear_gradient(
-					{box.lo.x, box.hi.y},
-					{box.hi.x, box.lo.y},
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
-				radius = {10, 30, 30, 10},
-			)
-		}
+		switch page {
+		case 0:
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+				box := vgo.Box{center - radius, center + radius}
 
-		{
-			box := cut_box(&layout, layout_size)
-			vgo.fill_circle(
-				(box.lo + box.hi) / 2,
-				(box.hi.x - box.lo.x) / 2,
-				vgo.make_linear_gradient(
-					{box.lo.x, box.hi.y},
-					{box.hi.x, box.lo.y},
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
-			)
-		}
-
-		{
-			box := cut_box(&layout, layout_size)
-			radius := (box.hi - box.lo) / 2
-			sides := 5
-			center := (box.lo + box.hi) / 2
-			vgo.push_matrix()
-			defer vgo.pop_matrix()
-			vgo.translate(center)
-			vgo.rotate(math.sin(animation_time * 1.75) * 0.2)
-			vgo.translate(-center)
-			vgo.begin_path()
-			vgo.move_to(box.lo)
-			vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
-			vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
-			box.lo += 15
-			box.hi -= 15
-			vgo.move_to(box.lo)
-			vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
-			vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
-			vgo.fill_path(
-				vgo.make_linear_gradient(
-					{box.lo.x, box.hi.y},
-					{box.hi.x, box.lo.y},
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
-			)
-		}
-
-		{
-			box := cut_box(&layout, layout_size)
-			radius := (box.hi - box.lo) / 2
-			sides := 5
-			center := (box.lo + box.hi) / 2
-			vgo.push_matrix()
-			defer vgo.pop_matrix()
-			vgo.translate(center)
-			vgo.rotate(math.sin(animation_time))
-			vgo.translate(-center)
-			vgo.begin_path()
-			for i := 0; i <= sides; i += 1 {
-				a := math.TAU * (f32(i) / f32(sides)) + animation_time * 0.5
-				p := center + [2]f32{math.cos(a), math.sin(a)} * radius
-				if i == 0 {
-					vgo.move_to(p)
-				} else {
-					b :=
-						math.TAU * (f32(i) / f32(sides)) -
-						(math.TAU / f32(sides * 2)) +
-						animation_time * 0.5
-					vgo.quadratic_bezier_to(
-						center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20),
-						p,
-					)
-				}
+				vgo.push_matrix()
+				defer vgo.pop_matrix()
+				vgo.translate(center)
+				vgo.rotate(math.sin(animation_time * 5) * 0.15)
+				vgo.translate(-center)
+				vgo.fill_box(
+					box,
+					vgo.make_linear_gradient(
+						{box.lo.x, box.hi.y},
+						{box.hi.x, box.lo.y},
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+					radius = {10, 30, 30, 10},
+				)
 			}
-			vgo.fill_path(
-				vgo.make_linear_gradient(
-					{box.lo.x, box.hi.y},
-					{box.hi.x, box.lo.y},
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
+
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+
+				vgo.fill_circle(
+					center,
+					radius,
+					vgo.make_linear_gradient(
+						center - radius,
+						center + radius,
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+				box := vgo.Box{center - radius, center + radius}
+
+				vgo.push_matrix()
+				defer vgo.pop_matrix()
+				vgo.translate(center)
+				vgo.rotate(math.sin(animation_time * 1.75) * 0.2)
+				vgo.translate(-center)
+				vgo.begin_path()
+				vgo.move_to(box.lo)
+				vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
+				vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
+				s := f32(10) * math.sin(animation_time * 3)
+				box.lo += 15 + s
+				box.hi -= 15 - s
+				vgo.move_to(box.lo)
+				vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
+				vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
+				vgo.fill_path(
+					vgo.make_linear_gradient(
+						{box.lo.x, box.hi.y},
+						{box.hi.x, box.lo.y},
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+
+				sides := 5
+
+				vgo.push_matrix()
+				defer vgo.pop_matrix()
+				vgo.translate(center)
+				vgo.rotate(math.sin(animation_time))
+				vgo.translate(-center)
+				vgo.begin_path()
+				for i := 0; i <= sides; i += 1 {
+					a := math.TAU * (f32(i) / f32(sides)) + animation_time * 0.5
+					p := center + [2]f32{math.cos(a), math.sin(a)} * radius
+					if i == 0 {
+						vgo.move_to(p)
+					} else {
+						b :=
+							math.TAU * (f32(i) / f32(sides)) -
+							(math.TAU / f32(sides * 2)) +
+							animation_time * 0.5
+						vgo.quadratic_bezier_to(
+							center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20),
+							p,
+						)
+					}
+				}
+				vgo.fill_path(
+					vgo.make_linear_gradient(
+						center - radius,
+						center + radius,
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+
+			// Arc
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+
+				t := animation_time * 3
+				vgo.draw_arc(
+					center,
+					t,
+					t + math.TAU * 0.75,
+					radius - 4,
+					radius,
+					vgo.make_linear_gradient(
+						center - radius,
+						center + radius,
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+
+			// Bezier stroke
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+
+				s := math.sin(animation_time * 3) * radius
+				vgo.stroke_cubic_bezier(
+					center + {-radius, 0},
+					center + {-radius * 0.4, -s},
+					center + {radius * 0.4, s},
+					center + {radius, 0},
+					2.0,
+					vgo.make_linear_gradient(
+						center - radius,
+						center + radius,
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+
+			// Text transforms
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE)
+
+				t := abs(math.cos(animation_time * 8)) * 0.7
+				vgo.fill_pie(
+					center,
+					t,
+					-t,
+					radius,
+					vgo.make_linear_gradient(
+						center - radius,
+						center + radius,
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+
+			// Icons
+			{
+				container := get_box(&layout)
+				center := (container.lo + container.hi) / 2
+				radius := f32(SIZE + 5)
+				size := radius * 2
+
+				vgo.push_matrix()
+				defer vgo.pop_matrix()
+				vgo.translate(center)
+				vgo.rotate(math.TAU * ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0))
+				vgo.draw_glyph(
+					icon_font,
+					icon_font.glyphs[int(animation_time + 0.1) % len(icon_font.glyphs)],
+					{-radius, -radius + icon_font.descend * size},
+					size,
+					vgo.make_linear_gradient(
+						-radius,
+						radius,
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
+					),
+				)
+			}
+		case 1:
+			box := layout.bounds
+			vgo.push_scissor(box, vgo.add_shape(vgo.make_box(box, 0)))
+			defer vgo.pop_scissor()
+			vgo.fill_text(
+				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
+
+Nam in nulla justo. Praesent eget neque pretium, consectetur purus sit amet, placerat nulla. Vestibulum lacinia enim vel egestas iaculis. Nulla congue quam nulla, sit amet placerat nunc vulputate nec. Vestibulum ante felis, pellentesque in nibh ac, tempor faucibus mi. Duis id arcu sit amet lorem tempus volutpat sit amet pretium justo. Integer tincidunt felis enim, sed ornare mi pellentesque a. Suspendisse potenti. Quisque blandit posuere ipsum, vitae vestibulum mauris placerat a. Nunc sed ante gravida, viverra est in, hendrerit est. Phasellus libero augue, posuere eu bibendum ut, semper non justo. Vestibulum maximus, nulla sed gravida porta, tellus erat dapibus augue, sed lacinia augue sapien eget velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
+
+Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.
+
+Donec elit purus, lobortis ut porttitor nec, elementum eu metus. Aliquam erat volutpat. Morbi dictum libero sed lorem malesuada, a egestas enim viverra. Cras eget euismod turpis. Aenean auctor nisl vel tristique consectetur. Sed vitae est id velit vestibulum tempus. Nullam sodales elit nibh, id hendrerit enim hendrerit in. Aenean sed sodales enim. Etiam a purus nec mi tempus fermentum non in turpis. Duis ullamcorper, tortor at euismod egestas, turpis justo eleifend dui, eu hendrerit nunc ligula et felis. Phasellus nec felis in nisi scelerisque fermentum sit amet sit amet justo. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut quam mi, sodales et urna eget, egestas hendrerit magna. Aenean ac nulla vitae nibh molestie dictum. Cras sapien mauris, dignissim quis metus a, semper dignissim dui.
+
+Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit volutpat, sapien ante convallis velit, vitae fermentum risus eros ac sapien. Nullam sit amet imperdiet dolor. Nullam dapibus eleifend lorem dapibus iaculis. Nulla euismod diam nec pretium rutrum. Duis tempus gravida tempor. Nulla sit amet dapibus tellus. Nunc elementum vitae purus at lacinia. Curabitur a finibus quam, ut auctor magna. Cras commodo viverra nulla, sit amet rutrum massa. Nunc pharetra tortor vel dui egestas, sed euismod lacus tempor. Curabitur eu erat a odio tincidunt fermentum vitae quis turpis.`,
+				font_24px,
+				box.lo,
+				24 + clamp(math.sin(animation_time), 0, 0.5) * 20,
+				vgo.make_radial_gradient(mouse_point, 500, vgo.WHITE, vgo.fade(vgo.WHITE, 0.0)),
+				line_limit = box.hi.x - box.lo.x,
 			)
+		case 2:
+			{
+				text := "Rotating ünicode téxt!"
+				text_size := f32(48)
+				center := canvas_size / 2
+				size := vgo.measure_text(text, font_48px, text_size)
+
+				vgo.push_matrix()
+				defer vgo.pop_matrix()
+				vgo.translate(center)
+				vgo.rotate(animation_time * 2)
+				vgo.fill_text(text, font_48px, -size / 2, text_size, vgo.GOLD)
+			}
+			{
+				text := "Scaling text"
+				text_size := f32(48)
+				center := canvas_size / 2 + {-canvas_size.x / 3, 0}
+				size := vgo.measure_text(text, font_48px, text_size)
+
+				vgo.push_matrix()
+				defer vgo.pop_matrix()
+				vgo.translate(center)
+				vgo.scale({1.0 + math.sin(animation_time) * 0.4, 1.0})
+				vgo.fill_text(text, font_48px, -size / 2, text_size, vgo.GOLD)
+			}
 		}
 
-		// Text transforms
+		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), font_24px, 0, 20, vgo.GREEN)
+
 		{
-			box := cut_box(&layout, layout_size)
-			center := (box.lo + box.hi) / 2
-			vgo.push_matrix()
-			defer vgo.pop_matrix()
-			vgo.translate(center)
-			vgo.rotate(math.sin(animation_time) * 0.08)
-			vgo.scale(1.0 + math.sin(animation_time * 0.5) * 0.2)
-			vgo.translate(-center)
-			line_limit := f32(400)
-			text := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi lobortis nunc quis lacus dictum, vel commodo eros bibendum."
-			size := f32(20)
-			text_size := vgo.measure_text(text, font_48px, size, line_limit = line_limit)
+			text := "[A] play/pause animation\n[Right] next page\n[Left] previous page"
+			text_size := f32(24)
+			size := vgo.measure_text(text, font_24px, text_size)
 			vgo.fill_text(
 				text,
 				font_24px,
-				center + {0, -text_size.y},
-				size,
-				vgo.make_radial_gradient(center, 200, GRADIENT_COLORS[0], GRADIENT_COLORS[1]),
-				line_limit = line_limit,
+				{0, canvas_size.y - size.y},
+				text_size,
+				vgo.Color(255),
 			)
 		}
-
-		vgo.fill_text("Press 'A' to play/pause animation", font_24px, {canvas_size.x / 2 - 130, canvas_size.y - 20}, 20, vgo.Color(255))
 
 		vgo.present()
 

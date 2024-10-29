@@ -92,7 +92,7 @@ make_arc :: proc(center: [2]f32, from, to, inner, outer: f32) -> Shape {
 
 make_pie :: proc(center: [2]f32, from, to, radius: f32) -> Shape {
 	from, to := from, to
-	if from > to do from, to = to, from
+	for from > to do to += math.TAU
 	th0 := -(from + (to - from) * 0.5) + math.PI
 	th1 := (to - from) / 2
 	return Shape {
@@ -258,7 +258,13 @@ draw_shape_with_bounds :: proc(shape_index: u32, bounds: Box, paint: Paint_Optio
 	paint_index := paint_index_from_option(paint)
 	// Add vertices
 	a := add_vertex(
-		Vertex{pos = bounds.lo, col = vertex_color, uv = 0, shape = shape_index, paint = paint_index},
+		Vertex {
+			pos = bounds.lo,
+			col = vertex_color,
+			uv = 0,
+			shape = shape_index,
+			paint = paint_index,
+		},
 	)
 	b := add_vertex(
 		Vertex {
@@ -270,7 +276,13 @@ draw_shape_with_bounds :: proc(shape_index: u32, bounds: Box, paint: Paint_Optio
 		},
 	)
 	c := add_vertex(
-		Vertex{pos = bounds.hi, col = vertex_color, uv = 1, shape = shape_index, paint = paint_index},
+		Vertex {
+			pos = bounds.hi,
+			col = vertex_color,
+			uv = 1,
+			shape = shape_index,
+			paint = paint_index,
+		},
 	)
 	d := add_vertex(
 		Vertex {
@@ -286,7 +298,11 @@ draw_shape_with_bounds :: proc(shape_index: u32, bounds: Box, paint: Paint_Optio
 
 // Render an already added shape
 draw_shape_by_index :: proc(shape_index: u32, paint: Paint_Option = nil) {
-	draw_shape_with_bounds(shape_index, get_shape_bounding_box(core.renderer.shapes.data[shape_index]), paint)
+	draw_shape_with_bounds(
+		shape_index,
+		get_shape_bounding_box(core.renderer.shapes.data[shape_index]),
+		paint,
+	)
 }
 
 draw_shape_struct :: proc(shape: Shape, paint: Paint_Option = nil) {
@@ -501,18 +517,15 @@ stroke_quad_bezier :: proc(a, b, c: [2]f32, width: f32, paint: Paint_Option) {
 }
 
 stroke_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option) {
-	draw_shape(make_cubic_bezier(a, b, c, d, width), paint)
-}
-
-make_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32) -> u32 {
 	ab := linalg.lerp(a, b, 0.5)
 	cd := linalg.lerp(c, d, 0.5)
 	mp := linalg.lerp(ab, cd, 0.5)
-	shape0 := add_shape(Shape{kind = .Bezier, cv0 = a, cv1 = ab, cv2 = mp, width = width})
-	shape1 := add_shape(
-		Shape{kind = .Bezier, cv0 = mp, cv1 = cd, cv2 = d, width = width, next = shape0},
+	draw_linked_shapes(
+		Shape{kind = .Bezier, cv0 = a, cv1 = ab, cv2 = mp, width = width},
+		Shape{kind = .Bezier, cv0 = mp, cv1 = cd, cv2 = d, width = width},
+		mode = .Union,
+		paint = paint,
 	)
-	return shape1
 }
 
 add_polygon_shape :: proc(pts: ..[2]f32) -> u32 {
@@ -557,8 +570,8 @@ stroke_pie :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Pai
 	draw_shape(shape, paint)
 }
 
-draw_arc :: proc(center: [2]f32, from, to: f32, radius, width: f32, color: Color) {
-	draw_shape(make_arc(center, from, to, radius, width), color)
+draw_arc :: proc(center: [2]f32, from, to: f32, radius, width: f32, paint: Paint_Option = nil) {
+	draw_shape(make_arc(center, from, to, radius, width), paint)
 }
 
 fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option) {

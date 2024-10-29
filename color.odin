@@ -9,6 +9,8 @@ import "core:strings"
 Color :: [4]u8
 
 // Default colors
+WHITE			:: Color(255)
+BLACK			:: Color{0, 0, 0, 255}
 GRAY 			:: proc(shade: f32) -> Color {return {u8(shade * 255), u8(shade * 255), u8(shade * 255), 255}}
 YELLOW 		:: Color{255, 255, 0, 255}
 BLUE 			:: Color{0, 115, 255, 255}

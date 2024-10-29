@@ -13,6 +13,8 @@ Core :: struct {
 	// Timing
 	start_time:           time.Time,
 	frame_time:           time.Time,
+	frames_this_second:		int,
+	last_second: 					time.Time,
 	delta_time:						f32,
 	fps:									f32,
 	// Text layout
@@ -77,8 +79,15 @@ get_fps :: proc() -> f32 {
 
 new_frame :: proc() {
 	core.delta_time = f32(time.duration_seconds(time.since(core.frame_time)))
-	core.fps = 1.0 /  core.delta_time
 	core.frame_time = time.now()
+
+	since_last_second := time.since(core.last_second)
+	if since_last_second >= time.Second {
+		core.fps = f32(core.frames_this_second)
+		core.frames_this_second = 0
+		core.last_second = core.frame_time
+	}
+	core.frames_this_second += 1
 
 	clear(&core.renderer.vertices)
 	clear(&core.renderer.indices)
