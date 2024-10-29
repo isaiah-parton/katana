@@ -114,7 +114,7 @@ make_pie :: proc(center: [2]f32, from, to, radius: f32) -> Shape {
 // Each nth shape affects the shape at n+1
 //
 // This can only be done to shapes that have not yet been added as they must all share the same transform.
-add_linked_shapes :: proc(shapes: ..Shape, mode: Shape_Mode = .Union, paint: Paint_Option = nil) {
+add_linked_shapes :: proc(shapes: ..Shape, mode: Shape_Mode = .Union, paint: Paint_Option = nil) -> u32 {
 	shape: Shape
 	bounds := Box{math.F32_MAX, 0}
 	for i := len(shapes) - 1; i > 0; i -= 1 {
@@ -134,17 +134,20 @@ add_linked_shapes :: proc(shapes: ..Shape, mode: Shape_Mode = .Union, paint: Pai
 	bounds.hi = linalg.max(bounds.hi, shape_bb.hi)
 	shape.quad_min = bounds.lo
 	shape.quad_max = bounds.hi
-	add_shape(shape)
+	shape.paint = paint_index_from_option(paint)
+	return add_shape(shape, true)
 }
 
 // Applies the current transform matrix and scissor, then queues the shape to
 // be sent to the GPU.
-add_shape :: proc(shape: Shape) -> u32 {
+add_shape :: proc(shape: Shape, no_bounds: bool = false) -> u32 {
 	shape := shape
-	bounds := get_shape_bounding_box(shape)
-	// Apply quad bounds
-	shape.quad_min = bounds.lo
-	shape.quad_max = bounds.hi
+	if !no_bounds {
+		bounds := get_shape_bounding_box(shape)
+		// Apply quad bounds
+		shape.quad_min = bounds.lo
+		shape.quad_max = bounds.hi
+	}
 	// Apply scissor
 	if scissor, ok := current_scissor().?; ok {
 		shape.next = scissor.shape

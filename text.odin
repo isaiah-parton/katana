@@ -90,6 +90,7 @@ make_text_iterator :: proc(
 	iter.font = font
 	iter.size = size
 	iter.options = options
+	iter.options.spacing = max(1, iter.options.spacing)
 	iter.max_width = options.max_width.? or_else math.F32_MAX
 	return
 }
@@ -268,7 +269,7 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 				c, b := utf8.decode_rune(iter.text[i:])
 				if c != '\n' {
 					if g, ok := get_font_glyph(iter.font, iter.char); ok {
-						space += g.advance * iter.size
+						space += g.advance * iter.size + iter.options.spacing
 					}
 				}
 				if c == ' ' || i > len(iter.text) - 1 {
@@ -287,7 +288,7 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 		iter.new_line = true
 	} else {
 		// Or if this rune would exceede the limit
-		if (iter.line_width + space >= iter.max_width) {
+		if (iter.line_width + space > iter.max_width) {
 			if iter.options.wrap == .None {
 				iter.char = 0
 				ok = false

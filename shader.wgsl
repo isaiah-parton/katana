@@ -559,10 +559,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			);
 	    var t = clamp((xform * (in.p - paint.cv0)).x, 0.0, 1.0);
 			// Dithering
-			let df = length(dir / uniforms.size) / 64.0;
-			t += mix(-df, df, random(in.p));
+			let diff = abs(paint.col1 - paint.col0);
 			// Mix color output
-	    out = mix(paint.col0, paint.col1, t);
+			let df = (diff.x + diff.y + diff.z + diff.w) * 0.0025;
+			// Mix color output
+	    out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
 		}
 		// Radial gradient
 		case 6u: {
@@ -583,7 +584,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			}
 			// out *= 1.0 - exp(-6.0*abs(d));
 			out = vec4<f32>(out.xyz * 0.8 + 0.2 * cos(0.5 * (d + uniforms.time * 5)), 1.0);
-			out = mix(out, vec4<f32>(1.0), 1.0 - smoothstep(0.0, 0.5, -(d / 10.0)));
+			out = mix(out, vec4<f32>(1.0), 1.0 - smoothstep(0.0, 0.25, -(d / 5.0)));
 		}
 		// Default case
 		default: {}

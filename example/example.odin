@@ -96,9 +96,11 @@ main :: proc() {
 		presentMode = caps.presentModes[0],
 		alphaMode   = caps.alphaModes[0],
 		device      = device,
-		format      = caps.formats[0],
+		format      = .RGBA8Unorm,
 		usage       = {.RenderAttachment},
 	}
+	fmt.println(caps.formats[:caps.formatCount])
+	fmt.println(surface_config.format)
 	wgpu.SurfaceConfigure(surface, &surface_config)
 
 	vgo.start(device, surface, surface_config.format)
@@ -122,13 +124,13 @@ main :: proc() {
 	animate: bool = true
 	animation_time: f32 = 0.1
 	page: int
-	PAGE_COUNT :: 3
+	PAGE_COUNT :: 4
 
 	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
 
 	loop: for {
-		// time.sleep(time.Millisecond * 16)
+		time.sleep(time.Millisecond * 10)
 
 		if animate {
 			animation_time += vgo.frame_time()
@@ -389,12 +391,13 @@ main :: proc() {
 			}
 		case 1:
 			box := layout.bounds
-			vgo.fill_box(vgo.Box{0, canvas_size}, vgo.GRAY(0.05))
-			vgo.push_scissor(vgo.make_box(box, {0, 30, 30, 30}))
+
+			vgo.push_scissor(vgo.make_box(box, 0))
 			defer vgo.pop_scissor()
 			vgo.push_scissor(vgo.make_circle(mouse_point, 250))
 			defer vgo.pop_scissor()
-			vgo.fill_box(box, vgo.BLACK)
+
+			// vgo.fill_box(box, vgo.BLACK)
 			text_size := f32(24 + clamp(math.sin(animation_time), 0, 0.5) * 24)
 			vgo.fill_text(
 				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
@@ -410,10 +413,10 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				text_size,
 				box.lo,
 				options = {
-					wrap = .Character,
+					wrap = .Word,
 					max_width = box.hi.x - box.lo.x,
 				},
-				paint = vgo.WHITE,
+				paint = vgo.make_linear_gradient(box.lo, box.hi, GRADIENT_COLORS[0], GRADIENT_COLORS[1]),
 			)
 		case 2:
 			{
@@ -425,22 +428,36 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
-				vgo.rotate(animation_time * 2)
+				vgo.rotate(animation_time * 0.1)
 				vgo.fill_text(text, font_48px, text_size, -size / 2 + 4, paint = vgo.GRAY(0.025))
 				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.WHITE)
 			}
 			{
-				text := "Scaling text"
+				box := layout.bounds
+
+				text := "Stretched text"
 				text_size := f32(48)
-				center := canvas_size / 2 + {-canvas_size.x / 3, 0}
+				center := canvas_size / 2 + {0, -200}
 				size := vgo.measure_text(text, font_48px, text_size)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
-				vgo.scale({1.0 + math.sin(animation_time) * 0.4, 1.0})
+				vgo.scale({1.0 + math.sin(animation_time) * 0.5, 1.0})
 				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.WHITE)
 			}
+			{
+				box := layout.bounds
+
+				text := "Dynamic text size"
+				text_size := f32(48) + math.sin(animation_time) * 24
+				center := canvas_size / 2 + {0, 200}
+				size := vgo.measure_text(text, font_48px, text_size)
+
+				vgo.fill_text(text, font_24px if text_size < 32 else font_48px, text_size, center - size / 2, paint = vgo.WHITE)
+			}
+		case 3:
+			vgo.fill_box(layout.bounds, vgo.make_linear_gradient(layout.bounds.lo, layout.bounds.hi, vgo.WHITE, vgo.fade(vgo.WHITE, 0.0)), 40)
 		}
 
 		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), font_24px, 20, {}, paint = vgo.GREEN)
