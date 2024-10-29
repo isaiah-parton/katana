@@ -376,42 +376,17 @@ fill_glyph :: proc(
 	origin: [2]f32,
 	paint: Paint_Option,
 	pixel_range: f32 = 2.0,
-) {
-	shape_index := add_shape(Shape{kind = .Glyph, radius = pixel_range})
-	paint_index := u32(paint_index_from_option(paint))
-	vertex_color := paint.(Color) or_else Color(255)
-
-	box := Box{origin + glyph.bounds.lo * size, origin + glyph.bounds.hi * size}
-
-	i := add_vertices(
-		Vertex {
-			pos = box.lo,
-			uv = glyph.source.lo / core.atlas_size,
-			col = vertex_color,
-			shape = shape_index,
-			paint = paint_index,
+) -> u32 {
+	shape := Shape {
+		kind   = .Glyph,
+		tex_min = glyph.source.lo / core.atlas_size,
+		tex_max = glyph.source.hi / core.atlas_size,
+		radius = {
+			0 = pixel_range,
 		},
-		Vertex {
-			pos = {box.hi.x, box.lo.y},
-			uv = [2]f32{glyph.source.hi.x, glyph.source.lo.y} / core.atlas_size,
-			col = vertex_color,
-			shape = shape_index,
-			paint = paint_index,
-		},
-		Vertex {
-			pos = box.hi,
-			uv = glyph.source.hi / core.atlas_size,
-			col = vertex_color,
-			shape = shape_index,
-			paint = paint_index,
-		},
-		Vertex {
-			pos = {box.lo.x, box.hi.y},
-			uv = [2]f32{glyph.source.lo.x, glyph.source.hi.y} / core.atlas_size,
-			col = vertex_color,
-			shape = shape_index,
-			paint = paint_index,
-		},
-	)
-	add_indices(i, i + 1, i + 2, i, i + 2, i + 3)
+		paint  = paint_index_from_option(paint),
+		quad_min = origin + glyph.bounds.lo * size,
+		quad_max = origin + glyph.bounds.hi * size,
+	}
+	return add_shape(shape)
 }

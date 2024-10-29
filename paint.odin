@@ -46,7 +46,7 @@ BUFFER_SIZE :: mem.Megabyte
 Matrix :: matrix[4, 4]f32
 
 Paint_Kind :: enum u32 {
-	// Raw vertex colors
+	// Invisible
 	None,
 	// Reserved
 	Solid_Color,
@@ -104,8 +104,8 @@ Vertex :: struct {
 Draw_Call :: struct {
 	user_texture:      Maybe(wgpu.Texture),
 	user_sampler_desc: Maybe(wgpu.SamplerDescriptor),
-	elem_offset:       int,
-	elem_count:        int,
+	first_shape:       int,
+	shape_count:       int,
 	index:             int,
 }
 
@@ -124,6 +124,10 @@ test_gpu_structs :: proc() {
 
 	assert(reflect.struct_field_by_name(Paint, "kind").offset == 0)
 	assert(reflect.struct_field_by_name(Paint, "next").offset == 4)
+	assert(reflect.struct_field_by_name(Paint, "quad_min").offset == 4)
+	assert(reflect.struct_field_by_name(Paint, "quad_max").offset == 4)
+	assert(reflect.struct_field_by_name(Paint, "tex_min").offset == 4)
+	assert(reflect.struct_field_by_name(Paint, "tex_max").offset == 4)
 	assert(reflect.struct_field_by_name(Paint, "cv0").offset == 8)
 	assert(reflect.struct_field_by_name(Paint, "cv1").offset == 16)
 	assert(reflect.struct_field_by_name(Paint, "cv2").offset == 24)
@@ -139,18 +143,17 @@ test_gpu_structs :: proc() {
 
 // Push a scissor shape to the stack, the SDF effect stacks.
 // If no shape is provided, only shape vertices will be clipped in `box`
-push_scissor :: proc(shape_index: u32) {
-	shape := &core.renderer.shapes.data[shape_index]
-	box := get_shape_bounding_box(shape^)
-	if scissor, ok := current_scissor().?; ok {
-		box.lo = linalg.max(box.lo, scissor.box.lo)
-		box.hi = linalg.min(box.hi, scissor.box.hi)
-		if scissor.shape != 0 {
-			shape.next = scissor.shape
-		}
-	}
+push_scissor :: proc(shape: Shape) {
+	shape := shape
 	shape.mode = .Intersection
-	push_stack(&core.scissor_stack, Scissor{box = box, shape = shape_index})
+	if scissor, ok := current_scissor().?; ok {
+		shape.next = scissor.shape
+	}
+	push_stack(
+		&core.scissor_stack,
+		Scissor{box = get_shape_bounding_box(shape), shape = u32(len(core.renderer.shapes.data))},
+	)
+	append(&core.renderer.shapes.data, shape)
 }
 
 // Pop the last scissor off the stack
@@ -167,8 +170,11 @@ current_scissor :: proc() -> Maybe(Scissor) {
 }
 
 // Construct a linear gradient paint for the GPU
-make_linear_gradient :: proc(start_point, end_point: [2]f32, start_color, end_color: Color) -> Paint {
-	return Paint{
+make_linear_gradient :: proc(
+	start_point, end_point: [2]f32,
+	start_color, end_color: Color,
+) -> Paint {
+	return Paint {
 		kind = .Linear_Gradient,
 		cv0 = start_point,
 		cv1 = end_point,
@@ -179,7 +185,7 @@ make_linear_gradient :: proc(start_point, end_point: [2]f32, start_color, end_co
 
 // Construct a radial gradient paint for the GPU
 make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -> Paint {
-	return Paint{
+	return Paint {
 		kind = .Radial_Gradient,
 		cv0 = center,
 		cv1 = {radius, 0},
@@ -209,35 +215,6 @@ add_xform :: proc(xform: Matrix) -> u32 {
 	index := u32(len(core.renderer.xforms.data))
 	append(&core.renderer.xforms.data, xform)
 	return index
-}
-
-// Append a vertex and return it's index
-add_vertex :: proc(v: Vertex) -> Index {
-	index := Index(len(core.renderer.vertices))
-	append(&core.renderer.vertices, v)
-	return index
-}
-
-add_vertices :: proc(v: ..Vertex) -> Index {
-	index := Index(len(core.renderer.vertices))
-	append(&core.renderer.vertices, ..v)
-	return index
-}
-
-add_index :: proc(i: Index) {
-	assert(core.current_draw_call != nil)
-	append(&core.renderer.indices, i)
-	core.current_draw_call.elem_count += 1
-}
-
-add_indices :: proc(i: ..Index) {
-	assert(core.current_draw_call != nil)
-	append(&core.renderer.indices, ..i)
-	core.current_draw_call.elem_count += len(i)
-}
-
-next_vertex_index :: proc() -> Index {
-	return Index(len(core.renderer.vertices))
 }
 
 current_matrix :: proc() -> Maybe(Matrix) {
@@ -302,7 +279,7 @@ append_draw_call :: proc() {
 		&core.draw_calls,
 		Draw_Call {
 			index = core.draw_call_index,
-			elem_offset = len(core.renderer.indices),
+			first_shape = len(core.renderer.shapes.data),
 			user_texture = core.user_texture,
 		},
 	)

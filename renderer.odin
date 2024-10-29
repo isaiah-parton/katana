@@ -89,10 +89,6 @@ Renderer :: struct {
 	storage_bind_group:        wgpu.BindGroup,
 	texture_bind_group_layout: wgpu.BindGroupLayout,
 	uniform_buffer:            wgpu.Buffer,
-	vertex_buffer:             wgpu.Buffer,
-	index_buffer:              wgpu.Buffer,
-	vertices:                  [dynamic]Vertex,
-	indices:                   [dynamic]u16,
 	shapes:                    WGPU_Buffer(Shape),
 	paints:                    WGPU_Buffer(Paint),
 	cvs:                       WGPU_Buffer([2]f32),
@@ -119,14 +115,6 @@ init_renderer_with_device_and_surface :: proc(
 	renderer.uniform_buffer = wgpu.DeviceCreateBuffer(
 		renderer.device,
 		&{label = "UniformBuffer", size = size_of(Shader_Uniforms), usage = {.Uniform, .CopyDst}},
-	)
-	renderer.vertex_buffer = wgpu.DeviceCreateBuffer(
-		renderer.device,
-		&{label = "VertexBuffer", size = BUFFER_SIZE, usage = {.Vertex, .CopyDst}},
-	)
-	renderer.index_buffer = wgpu.DeviceCreateBuffer(
-		renderer.device,
-		&{label = "IndexBuffer", size = BUFFER_SIZE, usage = {.Index, .CopyDst}},
 	)
 	wgpu_buffer_create(&renderer.shapes, renderer.device, "ShapeBuffer", 8192)
 	wgpu_buffer_create(&renderer.paints, renderer.device, "PaintBuffer", 4096)
@@ -237,31 +225,13 @@ init_renderer_with_device_and_surface :: proc(
 			},
 		},
 	)
-	// Vertex attribs
-	vertex_attributes := [?]wgpu.VertexAttribute {
-		{format = .Float32x2, offset = u64(offset_of(Vertex, pos)), shaderLocation = 0},
-		{format = .Float32x2, offset = u64(offset_of(Vertex, uv)), shaderLocation = 1},
-		{format = .Unorm8x4, offset = u64(offset_of(Vertex, col)), shaderLocation = 2},
-		{format = .Uint32, offset = u64(offset_of(Vertex, shape)), shaderLocation = 3},
-		{format = .Uint32, offset = u64(offset_of(Vertex, paint)), shaderLocation = 4},
-	}
 	// Create the pipeline
 	renderer.pipeline = wgpu.DeviceCreateRenderPipeline(
 		renderer.device,
 		&{
 			label = "RenderPipeline",
 			layout = pipeline_layout,
-			vertex = {
-				module = module,
-				entryPoint = "vs_main",
-				bufferCount = 1,
-				buffers = &wgpu.VertexBufferLayout {
-					arrayStride = size_of(Vertex),
-					stepMode = .Vertex,
-					attributeCount = len(vertex_attributes),
-					attributes = &vertex_attributes[0],
-				},
-			},
+			vertex = {module = module, entryPoint = "vs_main"},
 			fragment = &{
 				module = module,
 				entryPoint = "fs_main",
@@ -279,7 +249,7 @@ init_renderer_with_device_and_surface :: proc(
 					},
 				},
 			},
-			primitive = {topology = .TriangleList},
+			primitive = {topology = .TriangleStrip},
 			multisample = {count = u32(1), mask = 0xffffffff},
 		},
 	)
@@ -290,30 +260,12 @@ destroy_renderer :: proc(renderer: ^Renderer) {
 	wgpu_buffer_destroy(&renderer.paints)
 	wgpu_buffer_destroy(&renderer.cvs)
 	wgpu_buffer_destroy(&renderer.xforms)
-	wgpu.BufferRelease(renderer.vertex_buffer)
-	wgpu.BufferRelease(renderer.index_buffer)
 	wgpu.QueueRelease(renderer.queue)
 	wgpu.RenderPipelineRelease(renderer.pipeline)
 }
 
 present :: proc() {
 	renderer := &core.renderer
-
-	// Write buffer data
-	wgpu.QueueWriteBuffer(
-		renderer.queue,
-		renderer.vertex_buffer,
-		0,
-		raw_data(renderer.vertices),
-		len(renderer.vertices) * size_of(Vertex),
-	)
-	wgpu.QueueWriteBuffer(
-		renderer.queue,
-		renderer.index_buffer,
-		0,
-		raw_data(renderer.indices),
-		len(renderer.indices) * size_of(u32),
-	)
 
 	// Sort draw calls by index
 	slice.sort_by(core.draw_calls[:], proc(i, j: Draw_Call) -> bool {
@@ -374,31 +326,15 @@ present :: proc() {
 		0,
 	)
 
-	// Set element buffers with sanity checks
-	if len(renderer.vertices) > 0 {
-		wgpu.RenderPassEncoderSetVertexBuffer(
-			rpass,
-			0,
-			renderer.vertex_buffer,
-			0,
-			u64(len(renderer.vertices) * size_of(Vertex)),
-		)
-	}
-	if len(renderer.indices) > 0 {
-		wgpu.RenderPassEncoderSetIndexBuffer(
-			rpass,
-			renderer.index_buffer,
-			.Uint16 when Index ==
-			u16 else .Uint32 when Index ==
-			u32 else #panic("Unsupported index type"),
-			0,
-			u64(len(renderer.indices) * size_of(Index)),
-		)
-	}
-
 	// Set bind groups
 	wgpu.RenderPassEncoderSetBindGroup(rpass, 0, renderer.uniform_bind_group)
-	wgpu.QueueWriteBuffer(renderer.queue, renderer.uniform_buffer, 0, &uniform, size_of(Shader_Uniforms))
+	wgpu.QueueWriteBuffer(
+		renderer.queue,
+		renderer.uniform_buffer,
+		0,
+		&uniform,
+		size_of(Shader_Uniforms),
+	)
 
 	// Upload shader data
 	wgpu.RenderPassEncoderSetBindGroup(rpass, 2, renderer.storage_bind_group)
@@ -415,7 +351,7 @@ present :: proc() {
 	// Render draw calls
 	for &call in core.draw_calls {
 		// Redundancy checks
-		if call.elem_count == 0 {
+		if call.shape_count == 0 {
 			continue
 		}
 
@@ -481,14 +417,7 @@ present :: proc() {
 		wgpu.RenderPassEncoderSetBindGroup(rpass, 1, texture_bind_group)
 
 		// Draw elements
-		wgpu.RenderPassEncoderDrawIndexed(
-			rpass,
-			u32(call.elem_count),
-			1,
-			u32(call.elem_offset),
-			0,
-			0,
-		)
+		wgpu.RenderPassEncoderDraw(rpass, 4, u32(call.shape_count), 0, u32(call.first_shape))
 	}
 	wgpu.RenderPassEncoderEnd(rpass)
 	wgpu.RenderPassEncoderRelease(rpass)

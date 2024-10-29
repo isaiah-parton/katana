@@ -10,6 +10,10 @@ var<uniform> uniforms: Uniforms;
 struct Shape {
 	kind: u32,
 	next: u32,
+	quad_min: vec2<f32>,
+	quad_max: vec2<f32>,
+	tex_min: vec2<f32>,
+	tex_max: vec2<f32>,
 	cv0: vec2<f32>,
 	cv1: vec2<f32>,
 	cv2: vec2<f32>,
@@ -19,6 +23,7 @@ struct Shape {
 	count: u32,
 	stroke: u32,
 	xform: u32,
+	paint: u32,
 	mode: u32,
 };
 
@@ -62,21 +67,11 @@ struct XForms {
 @binding(3)
 var<storage> xforms: XForms;
 
-struct VertexInput {
-	@location(0) pos: vec2<f32>,
-	@location(1) uv: vec2<f32>,
-	@location(2) col: vec4<f32>,
-	@location(3) shape: u32,
-	@location(4) paint: u32,
-};
-
 struct VertexOutput {
   @builtin(position) pos: vec4<f32>,
-  @location(0) uv: vec2<f32>,
-  @location(1) col: vec4<f32>,
-	@location(2) shape: u32,
-	@location(3) paint: u32,
-	@location(4) p: vec2<f32>,
+	@location(0) shape: u32,
+	@location(1) p: vec2<f32>,
+	@location(2) uv: vec2<f32>,
 };
 
 @group(1)
@@ -450,17 +445,35 @@ fn noise(p: vec2<f32>) -> f32 {
 }
 
 @vertex
-fn vs_main(in: VertexInput) -> VertexOutput {
-	let xform = xforms.xforms[shapes.shapes[in.shape].xform];
-  var pos = (xform * vec4<f32>(in.pos, 0.0, 1.0)).xy;
-  pos = vec2<f32>(2.0, -2.0) * pos / uniforms.size + vec2<f32>(-1.0, 1.0);
+fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> VertexOutput {
+	let shape = shapes.shapes[instance];
   var out: VertexOutput;
-  out.p = in.pos;
+
+	switch (vertex) {
+	case 0u: {
+		out.p = shape.quad_min;
+		out.uv = shape.tex_min;
+	}
+	case 1u: {
+		out.p = vec2<f32>(shape.quad_min.x, shape.quad_max.y);
+		out.uv = vec2<f32>(shape.tex_min.x, shape.tex_max.y);
+	}
+	case 2u: {
+		out.p = vec2<f32>(shape.quad_max.x, shape.quad_min.y);
+		out.uv = vec2<f32>(shape.tex_max.x, shape.tex_min.y);
+	}
+	case 3u: {
+		out.p = shape.quad_max;
+		out.uv = shape.tex_max;
+	}
+	default: {}
+	}
+
+	let xform = xforms.xforms[shape.xform];
+  var pos = (xform * vec4<f32>(out.p, 0.0, 1.0)).xy;
+  pos = vec2<f32>(2.0, -2.0) * pos / uniforms.size + vec2<f32>(-1.0, 1.0);
   out.pos = vec4<f32>(pos, 0.0, 1.0);
-  out.uv = in.uv;
-  out.col = in.col;
-  out.shape = in.shape;
-  out.paint = in.paint;
+  out.shape = instance;
   return out;
 }
 
@@ -474,14 +487,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	var d = 0.0;
 
 	var shape = shapes.shapes[in.shape];
-	let first_xform = shape.xform;
+	let paint = paints.paints[shape.paint];
+
 	if (shape.kind > 0u) {
 		if (shape.kind == 9u) {
 			shape.cv0 = in.uv;
 		}
 		d = sd_shape(shape, in.p);
 	}
-	while (shape.next != 0u) {
+
+	while (shape.next > 0u) {
 		shape = shapes.shapes[shape.next];
 		if (shape.kind > 0u) {
 			if (shape.kind == 9u) {
@@ -512,20 +527,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		}
 	}
 
-	let paint = paints.paints[in.paint];
-
 	// Get pixel color
 	switch (paint.kind) {
+		// Solid color
 		case 1u: {
-			out = paint.col0 * in.col;
+			out = paint.col0;
 		}
 		// Atlas sampler
 		case 2u: {
-			out = textureSample(atlas_tex, atlas_samp, in.uv) * in.col;
+			out = textureSample(atlas_tex, atlas_samp, in.uv) * paint.col0;
 		}
 		// User texture sampler
 		case 3u: {
-			out = textureSampleBias(user_tex, user_samp, in.uv, -0.5) * in.col;
+			out = textureSampleBias(user_tex, user_samp, in.uv, -0.5) * paint.col0;
 		}
 		// Simplex noise gradient
 		case 4u: {
@@ -533,7 +547,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			var f = 0.5 * noise(uv * 0.0025 + uniforms.time * 0.2);
 			uv = mat2x2<f32>(1.6, 1.2, -1.2, 1.6) * uv;
 			f += noise(uv * 0.005 - uniforms.time * 0.2);
-			out = mix(paint.col0, paint.col1, clamp(f, 0.0, 1.0)) * in.col;
+			out = mix(paint.col0, paint.col1, clamp(f, 0.0, 1.0));
 		}
 		// Linear Gradient
 		case 5u: {
@@ -548,20 +562,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			let df = length(dir / uniforms.size) / 64.0;
 			t += mix(-df, df, random(in.p));
 			// Mix color output
-	    out = mix(paint.col0, paint.col1, t) * in.col;
+	    out = mix(paint.col0, paint.col1, t);
 		}
 		// Radial gradient
 		case 6u: {
 			let r = paint.cv1.x;
 			var t = clamp(length(in.p - paint.cv0) / r, 0.0, 1.0);
-
-			let inner_color = paint.col0 * in.col;
-			let outer_color = paint.col1 * in.col;
 			// Dithering
-			let diff = abs(outer_color - inner_color);
+			let diff = abs(paint.col1 - paint.col0);
 			// Mix color output
 			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05;
-	  	out = mix(inner_color, outer_color, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
+	  	out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
 		}
 		// Distance field
 		case 7u: {
@@ -575,9 +586,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			out = mix(out, vec4<f32>(1.0), 1.0 - smoothstep(0.0, 0.5, -(d / 10.0)));
 		}
 		// Default case
-		default: {
-			out = in.col;
-		}
+		default: {}
 	}
 
 	out.a *= clamp(1.0 - d, 0.0, 1.0);

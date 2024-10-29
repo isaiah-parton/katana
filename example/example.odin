@@ -389,11 +389,12 @@ main :: proc() {
 			}
 		case 1:
 			box := layout.bounds
-			vgo.push_scissor(vgo.add_shape(vgo.make_box(box, {0, 50, 50, 50})))
+			vgo.fill_box(vgo.Box{0, canvas_size}, vgo.GRAY(0.05))
+			vgo.push_scissor(vgo.make_box(box, {0, 30, 30, 30}))
 			defer vgo.pop_scissor()
-			vgo.push_scissor(vgo.add_shape(vgo.make_circle(mouse_point, 100)))
+			vgo.push_scissor(vgo.make_circle(mouse_point, 250))
 			defer vgo.pop_scissor()
-			vgo.fill_box(box, vgo.GRAY(0.5))
+			vgo.fill_box(box, vgo.BLACK)
 			text_size := f32(24 + clamp(math.sin(animation_time), 0, 0.5) * 24)
 			vgo.fill_text(
 				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
@@ -412,7 +413,7 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 					wrap = .Character,
 					max_width = box.hi.x - box.lo.x,
 				},
-				paint = vgo.make_radial_gradient(mouse_point, 500, vgo.WHITE, vgo.fade(vgo.WHITE, 0.0)),
+				paint = vgo.WHITE,
 			)
 		case 2:
 			{

@@ -25,16 +25,9 @@ close_path :: proc() {
 	line_to(core.renderer.cvs.data[core.path_start])
 }
 
-fill_path :: proc(paint: Paint_Option) {
-	draw_shape(
-		add_fill_path(),
-		paint,
-	)
-}
-
-add_fill_path :: proc() -> u32 {
+fill_path :: proc(paint: Paint_Option) -> u32 {
 	vertex_count := u32(len(core.renderer.cvs.data)) - core.path_start
 	return add_shape(
-		Shape{kind = .Path, start = core.path_start, count = vertex_count / 3},
+		Shape{kind = .Path, start = core.path_start, count = vertex_count / 3, paint = paint_index_from_option(paint)},
 	)
 }

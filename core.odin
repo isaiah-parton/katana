@@ -88,8 +88,6 @@ new_frame :: proc() {
 	}
 	core.frames_this_second += 1
 
-	clear(&core.renderer.vertices)
-	clear(&core.renderer.indices)
 	clear(&core.renderer.shapes.data)
 	clear(&core.renderer.paints.data)
 	clear(&core.renderer.cvs.data)
@@ -101,8 +99,8 @@ new_frame :: proc() {
 	clear(&core.draw_calls)
 	core.current_draw_call = nil
 
-	add_paint(Paint{kind = .None})
-	add_shape(Shape{kind = .Normal})
+	append(&core.renderer.paints.data, Paint{kind = .None})
+	append(&core.renderer.shapes.data, Shape{kind = .None})
 
 	append_draw_call()
 
