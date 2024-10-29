@@ -156,6 +156,13 @@ fn sd_bezier_approx(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f
   return length(get_distance_vector(A-p, B-p, C-p));
 }
 
+fn sd_line(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
+	let pa = p - a;
+	let ba = b - a;
+	let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+	return length(pa - ba * h) + 1.0;
+}
+
 fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let a = B - A;
   let b = A - 2.0*B + C;
@@ -240,21 +247,50 @@ fn lineTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> bool {
   let v = B - A;
   // Intersect line with x axis.
   let t = (p.y - A.y) / v.y;
-  return (A.x + t*v.x) > p.x;
+  return (A.x + t * v.x) > p.x;
+}
+
+fn sd_line_test(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> f32 {
+	let dir = normalize(B - A);
+	var det = 1.0 / ((dir.x * dir.x) - (-dir.y * dir.y));
+	let xform = mat2x2<f32>(
+		det * dir.x, det * -dir.y,
+		det * dir.y, det * dir.x,
+	);
+	return (xform * (p - A)).y / 4.0;
+}
+
+fn sd_triangle(p: vec2<f32>, p0: vec2<f32>, p1: vec2<f32>, p2: vec2<f32>) -> f32 {
+	let e0 = p1 - p0;
+	let e1 = p2 - p1;
+	let e2 = p0 - p2;
+	let v0 = p - p0;
+	let v1 = p - p1;
+	let v2 = p - p2;
+	let pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+	let pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+	let pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+	let s = sign(e0.x * e2.y - e0.y * e2.x);
+	let d = min(min(vec2<f32>(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+                  vec2<f32>(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+                  vec2<f32>(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
 }
 
 fn bezierTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> bool {
   // Compute barycentric coordinates of p.
   // p = s * A + t * B + (1-s-t) * C
-  let v0 = B - A; let v1 = C - A; let v2 = p - A;
+  let v0 = B - A;
+  let v1 = C - A;
+  let v2 = p - A;
   let det = v0.x * v1.y - v1.x * v0.y;
   let s = (v2.x * v1.y - v1.x * v2.y) / det;
   let t = (v0.x * v2.y - v2.x * v0.y) / det;
-  if(s < 0.0 || t < 0.0 || (1.0 - s - t) <= 0.0) {
+  if(s < 0.0 || t < 0.0 || (1.0 - s - t) < 0.0) {
     return false; // outside triangle
   }
   // Transform to canonical coordinte space.
-  let u = s * 0.5 + t;
+  let u = s / 2 + t;
   let v = t;
   return u * u < v;
 }
@@ -331,13 +367,10 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
           skip = true;
         }
         if (!skip) {
-        	let bd = sd_bezier(p, a, b, c) + 0.5;
-          if (bd >= 0.0) {
-          	d = min(d, bd);
-          }
+        	d = min(d, sd_bezier(p, a, b, c));
         }
         if (lineTest(p, a, c)) {
-          s = -s;
+        	s = -s;
         }
         // Flip if inside area between curve and line.
         if (!skip) {
@@ -371,7 +404,11 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     case 9u: {
    		let msd = textureSample(atlas_tex, atlas_samp, shape.cv0).rgb;
       let sd = median(msd.r, msd.g, msd.b);
-      d = -(shape.radius[0] * (sd - 0.5)) + 0.5;
+      d = -(shape.radius[0] * (sd - 0.5)) + 1.0;
+    }
+    // Line segment
+    case 10u: {
+    	d = sd_line(p, shape.cv0, shape.cv1) - shape.width;
     }
 		default: {}
 	}
@@ -437,6 +474,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	var d = 0.0;
 
 	var shape = shapes.shapes[in.shape];
+	let first_xform = shape.xform;
 	if (shape.kind > 0u) {
 		if (shape.kind == 9u) {
 			shape.cv0 = in.uv;

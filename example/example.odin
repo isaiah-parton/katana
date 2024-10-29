@@ -19,7 +19,7 @@ main :: proc() {
 	sdl2.Init(sdl2.INIT_VIDEO)
 	defer sdl2.Quit()
 
-	window := sdl2.CreateWindow("vgo example", 0, 0, 640, 480, {.SHOWN, .RESIZABLE})
+	window := sdl2.CreateWindow("vgo example", 100, 100, 640, 480, {.SHOWN, .RESIZABLE})
 	defer sdl2.DestroyWindow(window)
 
 	instance := wgpu.CreateInstance()
@@ -156,42 +156,149 @@ main :: proc() {
 
 		vgo.new_frame()
 
-		GRADIENT_COLORS :: [2]vgo.Color{
-			{255, 202, 32, 255},
-			{255, 110, 32, 255},
-		}
+		GRADIENT_COLORS :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
 
-		{
-			box := vgo.Box{100, 180}
-			vgo.fill_box(box, vgo.Paint{kind = .Distance_Field}, {10, 30, 30, 10})
+		layout := vgo.Box{100, canvas_size - 100}
+		cut_box :: proc(box: ^vgo.Box, size: f32) -> vgo.Box {
+			if box.hi.y - box.lo.y < size {
+				box.lo.y = 100
+				box.lo.x += (box.hi.x - box.lo.x) * 0.5
+			}
+			box.lo.y += size
+			result := vgo.Box{{box.lo.x, box.lo.y - size}, {box.lo.x + size, box.lo.y}}
+			size := result.hi - result.lo
+			result.lo += size * 0.25
+			result.hi -= size * 0.25
+			return result
 		}
+		layout_size := canvas_size.y / 5
 
+		first_shape: u32
 		{
-			box := vgo.Box{{100, 200}, {180, 280}}
-			vgo.fill_circle((box.lo + box.hi) / 2, 40, vgo.Paint{kind = .Distance_Field})
-		}
-
-		{
-			box := vgo.Box{{100, 300}, {180, 380}}
+			box := cut_box(&layout, layout_size)
 			center := (box.lo + box.hi) / 2
+			vgo.push_matrix()
+			defer vgo.pop_matrix()
+			vgo.translate(center)
+			vgo.rotate(math.sin(animation_time * 2) * 0.15)
+			vgo.translate(-center)
+			vgo.fill_box(
+				box,
+				vgo.make_linear_gradient(
+					{box.lo.x, box.hi.y},
+					{box.hi.x, box.lo.y},
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
+				radius = {10, 30, 30, 10},
+			)
+		}
+
+		{
+			box := cut_box(&layout, layout_size)
+			vgo.fill_circle(
+				(box.lo + box.hi) / 2,
+				(box.hi.x - box.lo.x) / 2,
+				vgo.make_linear_gradient(
+					{box.lo.x, box.hi.y},
+					{box.hi.x, box.lo.y},
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
+			)
+		}
+
+		{
+			box := cut_box(&layout, layout_size)
 			radius := (box.hi - box.lo) / 2
 			sides := 5
+			center := (box.lo + box.hi) / 2
+			vgo.push_matrix()
+			defer vgo.pop_matrix()
+			vgo.translate(center)
+			vgo.rotate(math.sin(animation_time * 1.75) * 0.2)
+			vgo.translate(-center)
 			vgo.begin_path()
-			// for i := sides; i >= 0; i -= 1 {
-			// 	a := math.TAU * (f32(i) / f32(sides)) + animation_time * 0.5
-			// 	p := center + [2]f32{math.cos(a), math.sin(a)} * radius
-			// 	if i == 5 {
-			// 		vgo.move_to(p)
-			// 	} else {
-			// 		b := math.TAU * (f32(i) / f32(sides)) - (math.TAU / f32(sides * 2)) + animation_time * 0.5
-			// 		vgo.quadratic_bezier_to(center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20), p)
-			// 	}
-			// }
 			vgo.move_to(box.lo)
-			vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi + {-1, 0})
+			vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
 			vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
-			vgo.fill_path(vgo.Paint{kind = .Distance_Field})
+			box.lo += 15
+			box.hi -= 15
+			vgo.move_to(box.lo)
+			vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
+			vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
+			vgo.fill_path(
+				vgo.make_linear_gradient(
+					{box.lo.x, box.hi.y},
+					{box.hi.x, box.lo.y},
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
+			)
 		}
+
+		{
+			box := cut_box(&layout, layout_size)
+			radius := (box.hi - box.lo) / 2
+			sides := 5
+			center := (box.lo + box.hi) / 2
+			vgo.push_matrix()
+			defer vgo.pop_matrix()
+			vgo.translate(center)
+			vgo.rotate(math.sin(animation_time))
+			vgo.translate(-center)
+			vgo.begin_path()
+			for i := 0; i <= sides; i += 1 {
+				a := math.TAU * (f32(i) / f32(sides)) + animation_time * 0.5
+				p := center + [2]f32{math.cos(a), math.sin(a)} * radius
+				if i == 0 {
+					vgo.move_to(p)
+				} else {
+					b :=
+						math.TAU * (f32(i) / f32(sides)) -
+						(math.TAU / f32(sides * 2)) +
+						animation_time * 0.5
+					vgo.quadratic_bezier_to(
+						center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20),
+						p,
+					)
+				}
+			}
+			vgo.fill_path(
+				vgo.make_linear_gradient(
+					{box.lo.x, box.hi.y},
+					{box.hi.x, box.lo.y},
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
+			)
+		}
+
+		// Text transforms
+		{
+			box := cut_box(&layout, layout_size)
+			center := (box.lo + box.hi) / 2
+			vgo.push_matrix()
+			defer vgo.pop_matrix()
+			vgo.translate(center)
+			vgo.rotate(math.sin(animation_time) * 0.08)
+			vgo.scale(1.0 + math.sin(animation_time * 0.5) * 0.2)
+			vgo.translate(-center)
+			line_limit := f32(400)
+			text := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi lobortis nunc quis lacus dictum, vel commodo eros bibendum."
+			size := f32(20)
+			text_size := vgo.measure_text(text, font_48px, size, line_limit = line_limit)
+			vgo.fill_text(
+				text,
+				font_24px,
+				center + {0, -text_size.y},
+				size,
+				vgo.make_radial_gradient(center, 200, GRADIENT_COLORS[0], GRADIENT_COLORS[1]),
+				line_limit = line_limit,
+			)
+		}
+
+		vgo.fill_text("Press 'A' to play/pause animation", font_24px, {canvas_size.x / 2 - 130, canvas_size.y - 20}, 20, vgo.Color(255))
 
 		vgo.present()
 

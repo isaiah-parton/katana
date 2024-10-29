@@ -11,13 +11,14 @@ Shape_Kind :: enum u32 {
 	Normal,
 	Circle,
 	Box,
-	BlurredBox,
+	Blurred_Box,
 	Arc,
 	Bezier,
 	Pie,
 	Path,
 	Polygon,
 	Glyph,
+	Line_Segment,
 }
 
 Shape_Outline :: enum u32 {
@@ -52,6 +53,14 @@ Shape :: struct #align (16) {
 
 Box :: struct {
 	lo, hi: [2]f32,
+}
+
+box_bottom_left :: proc(box: Box) -> [2]f32 {
+	return {box.lo.x, box.hi.y}
+}
+
+bot_top_right :: proc(box: Box) -> [2]f32 {
+	return {box.hi.x, box.lo.y}
 }
 
 // Constructors for GPU shapes
@@ -95,19 +104,27 @@ make_pie :: proc(center: [2]f32, from, to, radius: f32) -> Shape {
 	}
 }
 
-// Link two shapes, so that one affects the other based on the provided `Shape_Mode`
-// the shape at `base` is affected by `deform`
-link_shapes :: proc(base, deform: u32, mode: Shape_Mode = .Union) {
-	index := base
-	shape_data := &core.renderer.shapes.data[index]
-	for shape_data.next != 0 {
-		index = shape_data.next
-		shape_data = &core.renderer.shapes.data[index]
+// Link two or more shapes, so that each affects the next based on the provided `Shape_Mode`.
+//
+// Each nth shape affects the shape at n+1
+//
+// This can only be done to shapes that have not yet been added as they must all share the same transform.
+draw_linked_shapes :: proc(shapes: ..Shape, mode: Shape_Mode = .Union, paint: Paint_Option = nil) {
+	bounds := get_shape_bounding_box(shapes[0])
+	shape: Shape
+	for i := len(shapes) - 1; i > 0; i -= 1 {
+		shape = shapes[i - 1]
+		next_shape := shapes[i]
+		next_shape.mode = mode
+		shape.next = u32(len(core.renderer.shapes.data))
+		append(&core.renderer.shapes.data, next_shape)
+		if next_shape.mode != .Intersection {
+			shape_bb := get_shape_bounding_box(next_shape)
+			bounds.lo = linalg.min(bounds.lo, shape_bb.lo)
+			bounds.hi = linalg.max(bounds.hi, shape_bb.hi)
+		}
 	}
-	// Sanity check
-	assert(index != deform)
-	// Do the thing
-	shape_data.next = deform
+	draw_shape_with_bounds(add_shape(shape), bounds, paint)
 }
 
 // Applies the current transform matrix and scissor, then queues the shape to
@@ -136,6 +153,9 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 	box: Box = {math.F32_MAX, 0}
 	switch shape.kind {
 	case .Normal:
+	case .Line_Segment:
+		box.lo = shape.cv0 - shape.width
+		box.hi = shape.cv1 + shape.width
 	case .Glyph:
 		box.lo = shape.cv0
 		box.hi = shape.cv1
@@ -162,7 +182,7 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 	case .Bezier:
 		box.lo = linalg.min(shape.cv0, shape.cv1, shape.cv2) - shape.width * 2
 		box.hi = linalg.max(shape.cv0, shape.cv1, shape.cv2) + shape.width * 2
-	case .BlurredBox:
+	case .Blurred_Box:
 		box.lo = shape.cv0 - shape.cv1 * 3
 		box.hi = shape.cv0 + shape.cv1 * 3
 	case .Arc:
@@ -181,8 +201,8 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.hi += shape.width
 	}
 
-	box.lo -= 10
-	box.hi += 10
+	box.lo -= 1
+	box.hi += 1
 
 	return box
 }
@@ -224,43 +244,25 @@ paint_index_from_option :: proc(option: Paint_Option) -> u32 {
 	return core.paint
 }
 
-// Render an already added shape
-draw_shape_by_index :: proc(shape_index: u32, paint: Paint_Option = nil) {
-	shape := core.renderer.shapes.data[shape_index]
-	// Get full bounding box
-	box := get_shape_bounding_box(shape)
-	// Recursively enlarge to fit chained shapes
-	next := shape.next
-	for next != 0 {
-		next_shape := core.renderer.shapes.data[next]
-		if next_shape.mode != .Intersection {
-			shape_bb := get_shape_bounding_box(next_shape)
-			box.lo = linalg.min(box.lo, shape_bb.lo)
-			box.hi = linalg.max(box.hi, shape_bb.hi)
-		}
-		next = next_shape.next
-	}
+draw_shape_with_bounds :: proc(shape_index: u32, bounds: Box, paint: Paint_Option = nil) {
+	bounds := bounds
 	// Apply scissor clipping
-	// Shadows are not clipped like other shapes since they are currently only drawn below new layers
-	// This is subject to change.
-	if shape.kind != .BlurredBox {
-		if scissor, ok := current_scissor().?; ok {
-			box.lo = linalg.max(box.lo, scissor.box.lo)
-			box.hi = linalg.min(box.hi, scissor.box.hi)
-		}
+	if scissor, ok := current_scissor().?; ok {
+		bounds.lo = linalg.max(bounds.lo, scissor.box.lo)
+		bounds.hi = linalg.min(bounds.hi, scissor.box.hi)
 	}
 	// Discard fully clipped shapes
-	if box.lo.x >= box.hi.x || box.lo.y >= box.hi.y do return
+	if bounds.lo.x >= bounds.hi.x || bounds.lo.y >= bounds.hi.y do return
 	// Determine vertex color
 	vertex_color := paint.(Color) or_else 255
 	paint_index := paint_index_from_option(paint)
 	// Add vertices
 	a := add_vertex(
-		Vertex{pos = box.lo, col = vertex_color, uv = 0, shape = shape_index, paint = paint_index},
+		Vertex{pos = bounds.lo, col = vertex_color, uv = 0, shape = shape_index, paint = paint_index},
 	)
 	b := add_vertex(
 		Vertex {
-			pos = {box.lo.x, box.hi.y},
+			pos = {bounds.lo.x, bounds.hi.y},
 			col = vertex_color,
 			uv = {0, 1},
 			shape = shape_index,
@@ -268,11 +270,11 @@ draw_shape_by_index :: proc(shape_index: u32, paint: Paint_Option = nil) {
 		},
 	)
 	c := add_vertex(
-		Vertex{pos = box.hi, col = vertex_color, uv = 1, shape = shape_index, paint = paint_index},
+		Vertex{pos = bounds.hi, col = vertex_color, uv = 1, shape = shape_index, paint = paint_index},
 	)
 	d := add_vertex(
 		Vertex {
-			pos = {box.hi.x, box.lo.y},
+			pos = {bounds.hi.x, bounds.lo.y},
 			col = vertex_color,
 			uv = {1, 0},
 			shape = shape_index,
@@ -280,6 +282,11 @@ draw_shape_by_index :: proc(shape_index: u32, paint: Paint_Option = nil) {
 		},
 	)
 	add_indices(a, b, c, a, c, d)
+}
+
+// Render an already added shape
+draw_shape_by_index :: proc(shape_index: u32, paint: Paint_Option = nil) {
+	draw_shape_with_bounds(shape_index, get_shape_bounding_box(core.renderer.shapes.data[shape_index]), paint)
 }
 
 draw_shape_struct :: proc(shape: Shape, paint: Paint_Option = nil) {
@@ -484,41 +491,20 @@ normalize_color :: proc(color: Color) -> [4]f32 {
 // 	add_indices(a, b, c, a, c, d)
 // }
 
-draw_line :: proc(a, b: [2]f32, width: f32, color: Color) {
-	delta := b - a
-	length := math.sqrt(f32(delta.x * delta.x + delta.y * delta.y))
-	if length > 0 && width > 0 {
-		scale := width / (2 * length)
-		radius: [2]f32 = {-scale * delta.y, scale * delta.x}
-		fill_polygon(
-			{
-				{a.x + radius.x, a.y + radius.y},
-				{a.x - radius.x, a.y - radius.y},
-				{b.x - radius.x, b.y - radius.y},
-				{b.x + radius.x, b.y + radius.y},
-			},
-			color,
-		)
-	}
+draw_line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
+	draw_shape(Shape{kind = .Line_Segment, cv0 = a, cv1 = b, width = width}, paint)
 }
 
-draw_quad_bezier :: proc(a, b, c: [2]f32, width: f32, color: Color) {
+stroke_quad_bezier :: proc(a, b, c: [2]f32, width: f32, paint: Paint_Option) {
 	shape_index := add_shape(Shape{kind = .Bezier, cv0 = a, cv1 = b, cv2 = c, width = width})
-	draw_shape(shape_index, color)
+	draw_shape(shape_index, paint)
 }
 
-draw_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, color: Color) {
-	ab := linalg.lerp(a, b, 0.5)
-	cd := linalg.lerp(c, d, 0.5)
-	mp := linalg.lerp(ab, cd, 0.5)
-	shape0 := add_shape(Shape{kind = .Bezier, cv0 = a, cv1 = ab, cv2 = mp, width = width})
-	shape1 := add_shape(
-		Shape{kind = .Bezier, cv0 = mp, cv1 = cd, cv2 = d, width = width, next = shape0},
-	)
-	draw_shape(shape1, color)
+stroke_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option) {
+	draw_shape(make_cubic_bezier(a, b, c, d, width), paint)
 }
 
-add_shape_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32) -> u32 {
+make_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32) -> u32 {
 	ab := linalg.lerp(a, b, 0.5)
 	cd := linalg.lerp(c, d, 0.5)
 	mp := linalg.lerp(ab, cd, 0.5)
@@ -620,7 +606,7 @@ draw_rounded_box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color
 	draw_shape(
 		add_shape(
 			Shape {
-				kind = .BlurredBox,
+				kind = .Blurred_Box,
 				radius = corner_radius,
 				cv0 = box.lo,
 				cv1 = box.hi,

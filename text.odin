@@ -1,5 +1,6 @@
 package vgo
 
+import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 
@@ -35,12 +36,31 @@ make_text :: proc(content: string, font: Font, size: f32, line_limit: f32 = math
 	return result
 }
 
-// draw_text :: proc(text: Text, paint: Paint_Option) {
-
-// }
+measure_text :: proc(text: string, font: Font, size: f32, line_limit: f32 = math.F32_MAX) -> [2]f32 {
+	text_size: [2]f32
+	size := size / font.ascend
+	text_size.y += font.descend * size
+	line_height := font.line_height * size
+	for r in text {
+		if r == '\n' {
+			text_size.x = 0
+			text_size.y += line_height
+		}
+		glyph := get_font_glyph(font, r) or_continue
+		advance := glyph.advance * size
+		if text_size.x + advance > line_limit {
+			text_size.x = 0
+			text_size.y += line_height
+		}
+		text_size.x += advance
+	}
+	text_size.y += line_height
+	return text_size
+}
 
 fill_text :: proc(text: string, font: Font, origin: [2]f32, size: f32, paint: Paint_Option, line_limit: f32 = math.F32_MAX) -> [2]f32 {
 	offset: [2]f32
+	size := size / font.ascend
 	offset.y += font.descend * size
 	line_height := font.line_height * size
 	for r in text {
@@ -58,7 +78,8 @@ fill_text :: proc(text: string, font: Font, origin: [2]f32, size: f32, paint: Pa
 		draw_glyph(font, glyph, origin + offset, size, paint)
 		offset.x += advance
 	}
-	return offset + line_height
+	offset.y += line_height
+	return offset
 }
 
 draw_glyph :: proc(

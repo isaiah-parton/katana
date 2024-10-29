@@ -91,6 +91,7 @@ new_frame :: proc() {
 	core.current_draw_call = nil
 
 	add_paint(Paint{kind = .None})
+	add_shape(Shape{kind = .Normal})
 
 	append_draw_call()
 
