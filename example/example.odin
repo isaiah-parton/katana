@@ -245,14 +245,10 @@ main :: proc() {
 				vgo.translate(-center)
 				vgo.begin_path()
 				vgo.move_to(box.lo)
-				vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
-				vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
-				s := f32(10) * math.sin(animation_time * 3)
-				box.lo += 15 + s
-				box.hi -= 15 - s
-				vgo.move_to(box.lo)
-				vgo.quadratic_bezier_to({box.lo.x, box.hi.y}, box.hi)
-				vgo.quadratic_bezier_to({box.hi.x, box.lo.y}, box.lo)
+				vgo.quad_bezier_to({box.lo.x + 30, box.hi.y}, {box.lo.x + 50, box.lo.y + 30})
+				vgo.quad_bezier_to({box.hi.x, box.hi.y}, {box.hi.x - 20, box.hi.y})
+				vgo.quad_bezier_to({box.hi.x - 30, box.hi.y - 40}, {box.hi.x - 20, box.lo.y})
+				vgo.quad_bezier_to({box.lo.x + 20, box.lo.y + 50}, box.lo)
 				vgo.fill_path(
 					vgo.make_linear_gradient(
 						{box.lo.x, box.hi.y},
@@ -286,7 +282,7 @@ main :: proc() {
 							math.TAU * (f32(i) / f32(sides)) -
 							(math.TAU / f32(sides * 2)) +
 							animation_time * 0.5
-						vgo.quadratic_bezier_to(
+						vgo.quad_bezier_to(
 							center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20),
 							p,
 						)
@@ -330,13 +326,13 @@ main :: proc() {
 				center := (container.lo + container.hi) / 2
 				radius := f32(SIZE)
 
-				s := math.sin(animation_time * 3) * radius
+				s := math.sin(animation_time * 3) * radius * 1.5
 				vgo.stroke_cubic_bezier(
 					center + {-radius, 0},
 					center + {-radius * 0.4, -s},
 					center + {radius * 0.4, s},
 					center + {radius, 0},
-					2.0,
+					4.0,
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
@@ -378,11 +374,10 @@ main :: proc() {
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(math.TAU * ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0))
-				vgo.draw_glyph(
-					icon_font,
+				vgo.fill_glyph(
 					icon_font.glyphs[int(animation_time + 0.1) % len(icon_font.glyphs)],
-					{-radius, -radius + icon_font.descend * size},
 					size,
+					{-radius, -radius + icon_font.descend * size},
 					vgo.make_linear_gradient(
 						-radius,
 						radius,
@@ -393,8 +388,9 @@ main :: proc() {
 			}
 		case 1:
 			box := layout.bounds
-			vgo.push_scissor(box, vgo.add_shape(vgo.make_box(box, 0)))
+			vgo.push_scissor(box, vgo.add_shape(vgo.make_box(box, {0, 50, 50, 50})))
 			defer vgo.pop_scissor()
+			vgo.fill_box(box, vgo.RED)
 			vgo.fill_text(
 				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
 
@@ -406,10 +402,13 @@ Donec elit purus, lobortis ut porttitor nec, elementum eu metus. Aliquam erat vo
 
 Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit volutpat, sapien ante convallis velit, vitae fermentum risus eros ac sapien. Nullam sit amet imperdiet dolor. Nullam dapibus eleifend lorem dapibus iaculis. Nulla euismod diam nec pretium rutrum. Duis tempus gravida tempor. Nulla sit amet dapibus tellus. Nunc elementum vitae purus at lacinia. Curabitur a finibus quam, ut auctor magna. Cras commodo viverra nulla, sit amet rutrum massa. Nunc pharetra tortor vel dui egestas, sed euismod lacus tempor. Curabitur eu erat a odio tincidunt fermentum vitae quis turpis.`,
 				font_24px,
-				box.lo,
 				24 + clamp(math.sin(animation_time), 0, 0.5) * 20,
-				vgo.make_radial_gradient(mouse_point, 500, vgo.WHITE, vgo.fade(vgo.WHITE, 0.0)),
-				line_limit = box.hi.x - box.lo.x,
+				box.lo,
+				options = {
+					wrap = .Word,
+					max_width = box.hi.x - box.lo.x,
+				},
+				paint = vgo.make_radial_gradient(mouse_point, 500, vgo.GOLD, vgo.fade(vgo.GOLD, 0.0)),
 			)
 		case 2:
 			{
@@ -422,7 +421,7 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(animation_time * 2)
-				vgo.fill_text(text, font_48px, -size / 2, text_size, vgo.GOLD)
+				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.GOLD)
 			}
 			{
 				text := "Scaling text"
@@ -434,11 +433,11 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.scale({1.0 + math.sin(animation_time) * 0.4, 1.0})
-				vgo.fill_text(text, font_48px, -size / 2, text_size, vgo.GOLD)
+				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.GOLD)
 			}
 		}
 
-		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), font_24px, 0, 20, vgo.GREEN)
+		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), font_24px, 20, {}, paint = vgo.GREEN)
 
 		{
 			text := "[A] play/pause animation\n[Right] next page\n[Left] previous page"
@@ -447,9 +446,9 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 			vgo.fill_text(
 				text,
 				font_24px,
-				{0, canvas_size.y - size.y},
 				text_size,
-				vgo.Color(255),
+				{0, canvas_size.y - size.y},
+				paint = vgo.Color(255),
 			)
 		}
 

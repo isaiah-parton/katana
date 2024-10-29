@@ -12,13 +12,13 @@ move_to :: proc(p: [2]f32) {
 	core.path_point = p
 }
 
-quadratic_bezier_to :: proc(cp, p: [2]f32) {
+quad_bezier_to :: proc(cp, p: [2]f32) {
 	append(&core.renderer.cvs.data, core.path_point, cp, p)
 	move_to(p)
 }
 
 line_to :: proc(p: [2]f32) {
-	quadratic_bezier_to(linalg.lerp(core.path_point, p, 0.5), p)
+	quad_bezier_to(linalg.lerp(core.path_point, p, 0.5), p)
 }
 
 close_path :: proc() {

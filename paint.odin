@@ -81,8 +81,10 @@ Paint :: struct #align (8) {
 	col1: [4]f32,
 }
 
+Paint_Index :: distinct u32
+
 Paint_Option :: union {
-	u32,
+	Paint_Index,
 	Paint,
 	Color,
 }
@@ -186,15 +188,15 @@ make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -
 }
 
 // Add a paint to the the shader buffer and return its index
-add_paint :: proc(paint: Paint) -> u32 {
-	index := u32(len(core.renderer.paints.data))
+add_paint :: proc(paint: Paint) -> Paint_Index {
+	index := Paint_Index(len(core.renderer.paints.data))
 	append(&core.renderer.paints.data, paint)
 	return index
 }
 
 // Sets the default paint index for new shapes
-set_paint :: proc(paint: u32) {
-	core.paint = paint
+set_paint :: proc(paint: Paint_Option) {
+	core.paint = paint_index_from_option(paint)
 }
 
 set_shape :: proc(shape: u32) {

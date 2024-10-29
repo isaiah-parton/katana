@@ -232,14 +232,14 @@ apply_scissor_box :: proc(target, source: ^Box, clip: Box) {
 }
 
 // Get a usable paint index from a `Paint_Option`
-paint_index_from_option :: proc(option: Paint_Option) -> u32 {
+paint_index_from_option :: proc(option: Paint_Option) -> Paint_Index {
 	switch v in option {
-	case u32:
+	case Paint_Index:
 		return v
 	case Paint:
 		return add_paint(v)
 	case Color:
-		return 0
+		return Paint_Index(0)
 	}
 	return core.paint
 }
@@ -255,7 +255,7 @@ draw_shape_with_bounds :: proc(shape_index: u32, bounds: Box, paint: Paint_Optio
 	if bounds.lo.x >= bounds.hi.x || bounds.lo.y >= bounds.hi.y do return
 	// Determine vertex color
 	vertex_color := paint.(Color) or_else 255
-	paint_index := paint_index_from_option(paint)
+	paint_index := u32(paint_index_from_option(paint))
 	// Add vertices
 	a := add_vertex(
 		Vertex {

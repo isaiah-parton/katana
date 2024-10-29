@@ -25,8 +25,7 @@ Core :: struct {
 	current_matrix:       ^Matrix,
 	last_matrix:          Matrix,
 	matrix_index:         u32,
-	fonts:                [128]Maybe(Font),
-	fallback_font:        Font,
+	fallback_font:        Maybe(Font),
 	// Scissors are capped at 8 for the sake of sanity
 	scissor_stack:        Stack(Scissor, 8),
 	// Draw calls for ordered drawing
@@ -41,7 +40,7 @@ Core :: struct {
 	atlas_offset:         [2]f32,
 	atlas_content_height: f32,
 	// Current draw state
-	paint:                u32,
+	paint:                Paint_Index,
 	shape:                u32,
 	xform:                u32,
 	path_start:           u32,
@@ -95,6 +94,9 @@ new_frame :: proc() {
 	clear(&core.renderer.paints.data)
 	clear(&core.renderer.cvs.data)
 	clear(&core.renderer.xforms.data)
+
+	clear(&core.text_lines)
+	clear(&core.text_glyphs)
 
 	clear(&core.draw_calls)
 	core.current_draw_call = nil
