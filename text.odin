@@ -83,7 +83,9 @@ make_text_iterator :: proc(
 	font: Font,
 	size: f32,
 	options: Text_Options,
-) -> (iter: Text_Iterator) {
+) -> (
+	iter: Text_Iterator,
+) {
 	iter.text = text
 	iter.font = font
 	iter.size = size
@@ -132,7 +134,12 @@ make_text :: proc(
 		// Add a glyph
 		append(
 			&core.text_glyphs,
-			Text_Glyph{glyph = iter.glyph, code = iter.char, index = iter.index, offset = iter.offset},
+			Text_Glyph {
+				glyph = iter.glyph,
+				code = iter.char,
+				index = iter.index,
+				offset = iter.offset,
+			},
 		)
 
 		// Figure out highlighting and cursor pos
@@ -235,20 +242,18 @@ iterate_text_rune :: proc(it: ^Text_Iterator) -> bool {
 
 iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 
-	// Update horizontal offset with last glyph
+	advance := iter.glyph.advance * iter.size
+
+	// Advance glyph position
 	if iter.char != 0 {
-		iter.offset.x += iter.glyph.advance * iter.size + iter.options.spacing
+		iter.offset.x += advance + iter.options.spacing
 	}
 
 	// Get the next glyph
 	ok = iterate_text_rune(iter)
 
-	if ok && iter.last_char != 0 {
-		iter.offset.x += iter.options.spacing
-	}
-
 	// Space needed to fit this glyph/word
-	space: f32 = iter.glyph.advance * iter.size
+	space := advance
 	if !ok {
 		// We might need to use the end index
 		iter.index = iter.next_index
@@ -284,8 +289,7 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 		// Or if this rune would exceede the limit
 		if (iter.line_width + space >= iter.max_width) {
 			if iter.options.wrap == .None {
-				iter.index = iter.next_index
-				iter.offset.y += (iter.font.ascend - iter.font.descend) * iter.size
+				iter.char = 0
 				ok = false
 			} else {
 				iter.new_line = true
@@ -296,18 +300,19 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 	// Update vertical offset if there's a new line or if reached end
 	if iter.new_line {
 		iter.line_width = 0
-		iter.offset.x = 0
-		#partial switch iter.options.justify {
+		switch iter.options.justify {
+		case .Left:
+			iter.offset.x = 0
 		case .Center:
-			iter.offset.x -= measure_next_line(iter^) / 2
+			iter.offset.x = -measure_next_line(iter^) / 2
 		case .Right:
-			iter.offset.x -= measure_next_line(iter^)
+			iter.offset.x = -measure_next_line(iter^)
 		}
 		iter.offset.y += iter.font.line_height * iter.size
 	}
 
-	iter.line_width += iter.glyph.advance * iter.size + iter.options.spacing
-
+	// Advance line width
+	iter.line_width += advance
 	if ok && iter.last_char != 0 {
 		iter.line_width += iter.options.spacing
 	}
@@ -356,19 +361,29 @@ fill_text :: proc(
 	paint: Paint_Option = nil,
 ) -> [2]f32 {
 	_text, _ := make_text(text, font, size, options)
+	// Determine optimal pixel range for antialiasing
+	pixel_range := max(font.distance_range, (size / font.size) * font.distance_range)
+	// Draw the glyphs
 	for &glyph in _text.glyphs {
-		fill_glyph(glyph, size, origin + glyph.offset, paint)
+		fill_glyph(glyph, size, origin + glyph.offset, paint, pixel_range = pixel_range)
 	}
 	return _text.size
 }
 
-fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Option) {
-	shape_index := add_shape(Shape{kind = .Glyph, radius = 2.0})
+fill_glyph :: proc(
+	glyph: Font_Glyph,
+	size: f32,
+	origin: [2]f32,
+	paint: Paint_Option,
+	pixel_range: f32 = 2.0,
+) {
+	shape_index := add_shape(Shape{kind = .Glyph, radius = pixel_range})
 	paint_index := u32(paint_index_from_option(paint))
 	vertex_color := paint.(Color) or_else Color(255)
 
 	box := Box{origin + glyph.bounds.lo * size, origin + glyph.bounds.hi * size}
-	a := add_vertex(
+
+	i := add_vertices(
 		Vertex {
 			pos = box.lo,
 			uv = glyph.source.lo / core.atlas_size,
@@ -376,8 +391,6 @@ fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Op
 			shape = shape_index,
 			paint = paint_index,
 		},
-	)
-	b := add_vertex(
 		Vertex {
 			pos = {box.hi.x, box.lo.y},
 			uv = [2]f32{glyph.source.hi.x, glyph.source.lo.y} / core.atlas_size,
@@ -385,8 +398,6 @@ fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Op
 			shape = shape_index,
 			paint = paint_index,
 		},
-	)
-	c := add_vertex(
 		Vertex {
 			pos = box.hi,
 			uv = glyph.source.hi / core.atlas_size,
@@ -394,8 +405,6 @@ fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Op
 			shape = shape_index,
 			paint = paint_index,
 		},
-	)
-	d := add_vertex(
 		Vertex {
 			pos = {box.lo.x, box.hi.y},
 			uv = [2]f32{glyph.source.lo.x, glyph.source.hi.y} / core.atlas_size,
@@ -404,5 +413,5 @@ fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Op
 			paint = paint_index,
 		},
 	)
-	add_indices(a, b, c, a, c, d)
+	add_indices(i, i + 1, i + 2, i, i + 2, i + 3)
 }

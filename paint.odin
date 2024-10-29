@@ -139,17 +139,18 @@ test_gpu_structs :: proc() {
 
 // Push a scissor shape to the stack, the SDF effect stacks.
 // If no shape is provided, only shape vertices will be clipped in `box`
-push_scissor :: proc(box: Box, shape: u32 = 0) {
-	box := box
+push_scissor :: proc(shape_index: u32) {
+	shape := &core.renderer.shapes.data[shape_index]
+	box := get_shape_bounding_box(shape^)
 	if scissor, ok := current_scissor().?; ok {
 		box.lo = linalg.max(box.lo, scissor.box.lo)
 		box.hi = linalg.min(box.hi, scissor.box.hi)
 		if scissor.shape != 0 {
-			core.renderer.shapes.data[shape].next = scissor.shape
+			shape.next = scissor.shape
 		}
 	}
-	core.renderer.shapes.data[shape].mode = .Intersection
-	push_stack(&core.scissor_stack, Scissor{box = box, shape = shape})
+	shape.mode = .Intersection
+	push_stack(&core.scissor_stack, Scissor{box = box, shape = shape_index})
 }
 
 // Pop the last scissor off the stack
@@ -214,6 +215,12 @@ add_xform :: proc(xform: Matrix) -> u32 {
 add_vertex :: proc(v: Vertex) -> Index {
 	index := Index(len(core.renderer.vertices))
 	append(&core.renderer.vertices, v)
+	return index
+}
+
+add_vertices :: proc(v: ..Vertex) -> Index {
+	index := Index(len(core.renderer.vertices))
+	append(&core.renderer.vertices, ..v)
 	return index
 }
 

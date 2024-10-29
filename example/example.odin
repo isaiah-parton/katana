@@ -81,7 +81,7 @@ main :: proc() {
 	} else {
 		wgpu.InstanceRequestAdapter(
 			instance,
-			&{powerPreference = .LowPower, backendType = .OpenGL},
+			&{powerPreference = .LowPower},
 			on_adapter,
 		)
 	}
@@ -384,13 +384,17 @@ main :: proc() {
 						GRADIENT_COLORS[0],
 						GRADIENT_COLORS[1],
 					),
+					pixel_range = (size / icon_font.size) * icon_font.distance_range
 				)
 			}
 		case 1:
 			box := layout.bounds
-			vgo.push_scissor(box, vgo.add_shape(vgo.make_box(box, {0, 50, 50, 50})))
+			vgo.push_scissor(vgo.add_shape(vgo.make_box(box, {0, 50, 50, 50})))
 			defer vgo.pop_scissor()
-			vgo.fill_box(box, vgo.RED)
+			vgo.push_scissor(vgo.add_shape(vgo.make_circle(mouse_point, 100)))
+			defer vgo.pop_scissor()
+			vgo.fill_box(box, vgo.GRAY(0.5))
+			text_size := f32(24 + clamp(math.sin(animation_time), 0, 0.5) * 24)
 			vgo.fill_text(
 				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
 
@@ -401,14 +405,14 @@ Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet m
 Donec elit purus, lobortis ut porttitor nec, elementum eu metus. Aliquam erat volutpat. Morbi dictum libero sed lorem malesuada, a egestas enim viverra. Cras eget euismod turpis. Aenean auctor nisl vel tristique consectetur. Sed vitae est id velit vestibulum tempus. Nullam sodales elit nibh, id hendrerit enim hendrerit in. Aenean sed sodales enim. Etiam a purus nec mi tempus fermentum non in turpis. Duis ullamcorper, tortor at euismod egestas, turpis justo eleifend dui, eu hendrerit nunc ligula et felis. Phasellus nec felis in nisi scelerisque fermentum sit amet sit amet justo. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut quam mi, sodales et urna eget, egestas hendrerit magna. Aenean ac nulla vitae nibh molestie dictum. Cras sapien mauris, dignissim quis metus a, semper dignissim dui.
 
 Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit volutpat, sapien ante convallis velit, vitae fermentum risus eros ac sapien. Nullam sit amet imperdiet dolor. Nullam dapibus eleifend lorem dapibus iaculis. Nulla euismod diam nec pretium rutrum. Duis tempus gravida tempor. Nulla sit amet dapibus tellus. Nunc elementum vitae purus at lacinia. Curabitur a finibus quam, ut auctor magna. Cras commodo viverra nulla, sit amet rutrum massa. Nunc pharetra tortor vel dui egestas, sed euismod lacus tempor. Curabitur eu erat a odio tincidunt fermentum vitae quis turpis.`,
-				font_24px,
-				24 + clamp(math.sin(animation_time), 0, 0.5) * 20,
+				font_24px if text_size < 32 else font_48px,
+				text_size,
 				box.lo,
 				options = {
-					wrap = .Word,
+					wrap = .Character,
 					max_width = box.hi.x - box.lo.x,
 				},
-				paint = vgo.make_radial_gradient(mouse_point, 500, vgo.GOLD, vgo.fade(vgo.GOLD, 0.0)),
+				paint = vgo.make_radial_gradient(mouse_point, 500, vgo.WHITE, vgo.fade(vgo.WHITE, 0.0)),
 			)
 		case 2:
 			{
@@ -421,7 +425,8 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(animation_time * 2)
-				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.GOLD)
+				vgo.fill_text(text, font_48px, text_size, -size / 2 + 4, paint = vgo.GRAY(0.025))
+				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.WHITE)
 			}
 			{
 				text := "Scaling text"
@@ -433,7 +438,7 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.scale({1.0 + math.sin(animation_time) * 0.4, 1.0})
-				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.GOLD)
+				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.WHITE)
 			}
 		}
 
@@ -441,7 +446,7 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 
 		{
 			text := "[A] play/pause animation\n[Right] next page\n[Left] previous page"
-			text_size := f32(24)
+			text_size := f32(18)
 			size := vgo.measure_text(text, font_24px, text_size)
 			vgo.fill_text(
 				text,

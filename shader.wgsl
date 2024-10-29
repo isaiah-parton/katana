@@ -404,7 +404,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     case 9u: {
    		let msd = textureSample(atlas_tex, atlas_samp, shape.cv0).rgb;
       let sd = median(msd.r, msd.g, msd.b);
-      d = -(shape.radius[0] * (sd - 0.5)) + 1.0;
+      d = -(shape.radius[0] * (sd - 0.5)) + 0.5;
     }
     // Line segment
     case 10u: {
@@ -560,7 +560,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			// Dithering
 			let diff = abs(outer_color - inner_color);
 			// Mix color output
-			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05 * mix(inner_color.a, outer_color.a, t);
+			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05;
 	  	out = mix(inner_color, outer_color, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
 		}
 		// Distance field
@@ -580,7 +580,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		}
 	}
 
-	out.a *= 1.0 - d;
+	out.a *= clamp(1.0 - d, 0.0, 1.0);
 
   return out;
 }
