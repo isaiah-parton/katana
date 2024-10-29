@@ -99,8 +99,8 @@ main :: proc() {
 		format      = .RGBA8Unorm,
 		usage       = {.RenderAttachment},
 	}
-	fmt.println(caps.formats[:caps.formatCount])
-	fmt.println(surface_config.format)
+	// fmt.println(caps.formats[:caps.formatCount])
+	// fmt.println(surface_config.format)
 	wgpu.SurfaceConfigure(surface, &surface_config)
 
 	vgo.start(device, surface, surface_config.format)
