@@ -116,7 +116,7 @@ color_from :: proc {
 	color_from_hsva,
 }
 
-lerp_colors :: proc(time: f32, colors: ..Color) -> Color {
+mix :: proc(time: f32, colors: ..Color) -> Color {
 	if len(colors) > 0 {
 		if len(colors) == 1 {
 			return colors[0]
@@ -177,7 +177,7 @@ fade :: proc(color: Color, alpha: f32) -> Color {
 	return {color.r, color.g, color.b, u8(f32(color.a) * alpha)}
 }
 
-alpha_blend_colors_tint :: proc(dst, src, tint: Color) -> (out: Color) {
+blend_colors_tint :: proc(dst, src, tint: Color) -> (out: Color) {
 	out = 255
 
 	src := src
@@ -215,11 +215,11 @@ alpha_blend_colors_tint :: proc(dst, src, tint: Color) -> (out: Color) {
 	return
 }
 
-alpha_blend_colors_time :: proc(dst, src: Color, time: f32) -> (out: Color) {
-	return alpha_blend_colors_tint(dst, src, fade(255, time))
+blend_colors_time :: proc(dst, src: Color, time: f32) -> (out: Color) {
+	return blend_colors_tint(dst, src, fade(255, time))
 }
 
-alpha_blend_colors :: proc {
-	alpha_blend_colors_time,
-	alpha_blend_colors_tint,
+blend :: proc {
+	blend_colors_time,
+	blend_colors_tint,
 }

@@ -34,6 +34,11 @@ Font :: struct {
 	glyphs:                []Font_Glyph,
 }
 
+destroy_font :: proc(font: ^Font) {
+	delete(font.glyphs)
+	font^ = {}
+}
+
 load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: Font, ok: bool) {
 
 	image_data := os.read_entire_file(image_file) or_return
@@ -72,7 +77,11 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 	wgpu.QueueSubmit(core.renderer.queue, {})
 
 	json_data := os.read_entire_file(json_file) or_return
+	defer delete(json_data)
+
 	json_value, json_err := json.parse(json_data)
+	defer json.destroy_value(json_value)
+
 	if json_err != nil do return
 
 	obj := json_value.(json.Object) or_return

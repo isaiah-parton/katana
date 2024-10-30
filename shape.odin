@@ -71,7 +71,7 @@ bot_top_right :: proc(box: Box) -> [2]f32 {
 // Constructors for GPU shapes
 // ---
 
-make_box :: proc(box: Box, radius: [4]f32) -> Shape {
+make_box :: proc(box: Box, radius: [4]f32 = {}) -> Shape {
 	return Shape{kind = .Box, radius = radius, cv0 = box.lo, cv1 = box.hi}
 }
 
@@ -339,7 +339,7 @@ paint_index_from_option :: proc(option: Paint_Option) -> Paint_Index {
 // }
 
 // Draw one or more line segments connected with miter joints
-draw_joined_lines :: proc(
+lines :: proc(
 	points: [][2]f32,
 	thickness: f32,
 	color: Color,
@@ -403,26 +403,27 @@ draw_joined_lines :: proc(
 		nv0 := p2 - (left / dot2) * miter2
 		nv1 := p2 + (right / dot2) * miter2
 		// Add a polygon for each quad
-		fill_polygon({v0, v1, nv1, nv0}, color)
+		fill_polygon(v0, v1, nv1, nv0, paint = color)
 		v0, v1 = nv0, nv1
 	}
 }
 
-__join_miter :: proc(p0, p1, p2: [2]f32) -> (dot: f32, miter: [2]f32) {
-	line := linalg.normalize(p2 - p1)
-	normal := linalg.normalize([2]f32{-line.y, line.x})
-	tangent := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
-	miter = {-tangent.y, tangent.x}
-	dot = linalg.dot(normal, miter)
-	return
-}
+// Why is this here?
+// __join_miter :: proc(p0, p1, p2: [2]f32) -> (dot: f32, miter: [2]f32) {
+// 	line := linalg.normalize(p2 - p1)
+// 	normal := linalg.normalize([2]f32{-line.y, line.x})
+// 	tangent := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
+// 	miter = {-tangent.y, tangent.x}
+// 	dot = linalg.dot(normal, miter)
+// 	return
+// }
 
 // 0-255 -> 0.0-1.0
 normalize_color :: proc(color: Color) -> [4]f32 {
 	return {f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0}
 }
 
-draw_line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
+line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
 	add_shape(
 		Shape {
 			kind = .Line_Segment,
@@ -458,27 +459,13 @@ stroke_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option)
 	)
 }
 
-add_polygon_shape :: proc(pts: ..[2]f32) -> u32 {
-	shape := Shape {
+fill_polygon :: proc(vertices: ..[2]f32, paint: Paint_Option = nil) {
+	add_shape(Shape {
 		kind  = .Polygon,
-		start = u32(len(core.renderer.cvs.data)),
-	}
-	for p in pts {
-		append(&core.renderer.cvs.data, p)
-		shape.count += 1
-	}
-	return add_shape(shape)
-}
-
-fill_polygon :: proc(pts: [][2]f32, paint: Paint_Option) {
-	shape := Shape {
-		kind  = .Polygon,
-		start = u32(len(core.renderer.cvs.data)),
-		count = u32(len(pts)),
+		start = add_vertices(..vertices),
+		count = u32(len(vertices)),
 		paint = paint_index_from_option(paint),
-	}
-	append(&core.renderer.cvs.data, ..pts)
-	add_shape(shape)
+	})
 }
 
 lerp_cubic_bezier :: proc(a, b, c, d: [2]f32, t: f32) -> [2]f32 {
@@ -504,7 +491,7 @@ stroke_pie :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Pai
 	add_shape(shape)
 }
 
-draw_arc :: proc(center: [2]f32, from, to: f32, radius, width: f32, paint: Paint_Option = nil) {
+arc :: proc(center: [2]f32, from, to: f32, radius, width: f32, paint: Paint_Option = nil) {
 	shape := make_arc(center, from, to, radius, width)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
@@ -521,7 +508,7 @@ fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option) {
 	)
 }
 
-draw_circle_stroke :: proc(center: [2]f32, radius, width: f32, color: Color) {
+stroke_circle :: proc(center: [2]f32, radius, width: f32, color: Color) {
 	add_shape(
 		Shape {
 			kind = .Circle,
@@ -534,14 +521,13 @@ draw_circle_stroke :: proc(center: [2]f32, radius, width: f32, color: Color) {
 	)
 }
 
-
-fill_box :: proc(box: Box, paint: Paint_Option, radius: [4]f32 = {}) {
+fill_box :: proc(box: Box, radius: [4]f32 = {}, paint: Paint_Option = nil) {
 	shape := make_box(box, radius)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
 }
 
-stroke_box :: proc(box: Box, width: f32, paint: Paint_Option, radius: [4]f32 = {}) {
+stroke_box :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option) {
 	shape := make_box(box, radius)
 	shape.outline = .Stroke
 	shape.width = width
@@ -549,7 +535,7 @@ stroke_box :: proc(box: Box, width: f32, paint: Paint_Option, radius: [4]f32 = {
 	add_shape(shape)
 }
 
-draw_box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) {
+box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) {
 	add_shape(
 		Shape {
 			kind = .Blurred_Box,
@@ -562,27 +548,33 @@ draw_box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color)
 	)
 }
 
-draw_spinner :: proc(center: [2]f32, radius: f32, color: Color) {
+spinner :: proc(center: [2]f32, radius: f32, color: Color) {
 	from := f32(time.duration_seconds(time.since(core.start_time)) * 2) * math.PI
 	to := from + 2.5 + math.sin(f32(time.duration_seconds(time.since(core.start_time)) * 3)) * 1
 
 	width := radius * 0.25
 
-	draw_arc(center, from, to, radius - width, radius, color)
+	arc(center, from, to, radius - width, radius, color)
 }
 
-draw_arrow :: proc(pos: [2]f32, scale: f32, color: Color) {
-	draw_joined_lines(
+arrow :: proc(pos: [2]f32, scale: f32, color: Color) {
+	lines(
 		{pos + {-1, -0.5} * scale, pos + {0, 0.5} * scale, pos + {1, -0.5} * scale},
 		2,
 		color,
 	)
 }
 
-draw_check :: proc(pos: [2]f32, scale: f32, color: Color) {
-	draw_joined_lines(
+check :: proc(pos: [2]f32, scale: f32, color: Color) {
+	lines(
 		{pos + {-1, -0.047} * scale, pos + {-0.333, 0.619} * scale, pos + {1, -0.713} * scale},
 		2,
 		color,
 	)
+}
+
+add_vertices :: proc(vertices: ..[2]f32) -> u32 {
+	index := u32(len(core.renderer.cvs.data))
+	append(&core.renderer.cvs.data, ..vertices)
+	return index
 }

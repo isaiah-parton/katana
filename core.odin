@@ -47,6 +47,32 @@ Core :: struct {
 	path_point:           [2]f32,
 }
 
+request_adapter_options :: proc() -> wgpu.RequestAdapterOptions {
+	return wgpu.RequestAdapterOptions{
+		powerPreference = .LowPower,
+	}
+}
+
+device_descriptor :: proc() -> wgpu.DeviceDescriptor {
+	return wgpu.DeviceDescriptor{
+		requiredFeatureCount = 1,
+		requiredFeatures = ([^]wgpu.FeatureName)(
+			&[?]wgpu.FeatureName{.VertexWritableStorage},
+		),
+	}
+}
+
+surface_configuration :: proc(device: wgpu.Device, adapter: wgpu.Adapter, surface: wgpu.Surface) -> wgpu.SurfaceConfiguration {
+	caps := wgpu.SurfaceGetCapabilities(surface, adapter)
+	return wgpu.SurfaceConfiguration{
+		presentMode = caps.presentModes[0],
+		alphaMode   = caps.alphaModes[0],
+		device      = device,
+		format      = .BGRA8Unorm,
+		usage       = {.RenderAttachment},
+	}
+}
+
 // Call before using vgo
 start :: proc(device: wgpu.Device, surface: wgpu.Surface, surface_format: wgpu.TextureFormat) {
 	init_renderer_with_device_and_surface(&core.renderer, device, surface, surface_format)
@@ -68,8 +94,12 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface, surface_format: wgpu.T
 }
 
 // Call when you're done using vgo
-done :: proc() {
+shutdown :: proc() {
 	delete(core.draw_calls)
+	delete(core.text_lines)
+	delete(core.text_glyphs)
+	wgpu.TextureDestroy(core.atlas_texture)
+	destroy_renderer(&core.renderer)
 }
 
 get_fps :: proc() -> f32 {
@@ -105,6 +135,9 @@ new_frame :: proc() {
 	append_draw_call()
 
 	core.matrix_stack.height = 0
+	core.last_matrix = {}
+	core.matrix_index = 0
+
 	push_matrix()
 }
 

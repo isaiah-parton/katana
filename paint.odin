@@ -285,3 +285,10 @@ append_draw_call :: proc() {
 	)
 	core.current_draw_call = &core.draw_calls[len(core.draw_calls) - 1]
 }
+
+set_draw_order :: proc(index: int) {
+	if core.draw_call_index != index {
+		core.draw_call_index = index
+		append_draw_call()
+	}
+}

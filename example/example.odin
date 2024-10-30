@@ -3,8 +3,8 @@ package vgo_example
 import "base:runtime"
 import "core:fmt"
 import "core:math"
-import "core:math/linalg"
 import "core:math/ease"
+import "core:math/linalg"
 import "core:time"
 import "vendor:sdl2"
 import "vendor:wgpu"
@@ -24,7 +24,6 @@ main :: proc() {
 	defer sdl2.DestroyWindow(window)
 
 	instance := wgpu.CreateInstance()
-
 	surface := sdl2glue.GetSurface(instance, window)
 
 	on_device :: proc "c" (
@@ -35,12 +34,9 @@ main :: proc() {
 	) {
 		context = runtime.default_context()
 		switch status {
-		case .Success:
-			device = _device
-		case .Error:
-			fmt.panicf("Unable to aquire device: %s", message)
-		case .Unknown:
-			panic("Unknown error")
+		case .Success: device = _device
+		case .Error: fmt.panicf("Unable to aquire device: %s", message)
+		case .Unknown: panic("Unknown error")
 		}
 	}
 
@@ -56,79 +52,55 @@ main :: proc() {
 			adapter = _adapter
 			info := wgpu.AdapterGetInfo(adapter)
 			fmt.printfln("Using %v on %v", info.backendType, info.description)
+
+			descriptor := vgo.device_descriptor()
 			wgpu.AdapterRequestDevice(
 				adapter,
-				&{
-					requiredFeatureCount = 1,
-					requiredFeatures = ([^]wgpu.FeatureName)(
-						&[?]wgpu.FeatureName{.VertexWritableStorage},
-					),
-				},
+				&descriptor,
 				on_device,
 			)
-		case .Error:
-			fmt.panicf("Unable to acquire adapter: %s", message)
-		case .Unavailable:
-			panic("Adapter unavailable")
-		case .Unknown:
-			panic("Unknown error")
+		case .Error: fmt.panicf("Unable to acquire adapter: %s", message)
+		case .Unavailable: panic("Adapter unavailable")
+		case .Unknown: panic("Unknown error")
 		}
 	}
 
-	when false {
-		adapters := wgpu.InstanceEnumerateAdapters(instance)
-		on_adapter(.Success, adapters[1], nil, nil)
-	} else {
-		wgpu.InstanceRequestAdapter(
-			instance,
-			&{powerPreference = .LowPower},
-			on_adapter,
-		)
-	}
+	wgpu.InstanceRequestAdapter(instance, &{powerPreference = .LowPower}, on_adapter)
 
 	window_width, window_height: i32
 	sdl2.GetWindowSize(window, &window_width, &window_height)
 
-	caps := wgpu.SurfaceGetCapabilities(surface, adapter)
-	surface_config := wgpu.SurfaceConfiguration {
-		width       = u32(window_width),
-		height      = u32(window_height),
-		presentMode = caps.presentModes[0],
-		alphaMode   = caps.alphaModes[0],
-		device      = device,
-		format      = .BGRA8Unorm,
-		usage       = {.RenderAttachment},
-	}
-	// fmt.println(caps.formats[:caps.formatCount])
-	// fmt.println(surface_config.format)
+	surface_config := vgo.surface_configuration(device, adapter, surface)
+	surface_config.width = u32(window_width)
+	surface_config.height = u32(window_height)
 	wgpu.SurfaceConfigure(surface, &surface_config)
 
 	vgo.start(device, surface, surface_config.format)
-	defer vgo.done()
+	defer vgo.shutdown()
 
+	// Load some fonts
 	light_font, _ := vgo.load_font_from_image_and_json(
-		"fonts/Roboto-Light-24px.png",
-		"fonts/Roboto-Light-24px.json",
+		"fonts/Outfit-Light-24px.png",
+		"fonts/Outfit-Light-24px.json",
 	)
-
 	regular_font, _ := vgo.load_font_from_image_and_json(
 		"fonts/Outfit-Regular-32px.png",
 		"fonts/Outfit-Regular-32px.json",
 	)
-
 	icon_font, _ := vgo.load_font_from_image_and_json(
 		"fonts/remixicon.png",
 		"fonts/remixicon.json",
 	)
 
+	//
 	animate: bool = true
 	animation_time: f32 = 0.1
 	page: int
 	PAGE_COUNT :: 4
-
 	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
 
+	// Frame loop
 	loop: for {
 		time.sleep(time.Millisecond * 10)
 
@@ -194,7 +166,13 @@ main :: proc() {
 
 		switch page {
 		case 0:
-			vgo.fill_glyph(vgo.get_font_glyph(regular_font, 'd') or_else panic(""), 128, 100, vgo.WHITE, 8.0)
+			vgo.fill_glyph(
+				vgo.get_font_glyph(regular_font, 'd') or_else panic(""),
+				128,
+				100,
+				vgo.WHITE,
+				8.0,
+			)
 
 			{
 				container := get_box(&layout)
@@ -209,13 +187,13 @@ main :: proc() {
 				vgo.translate(-center)
 				vgo.fill_box(
 					box,
+					{10, 30, 30, 10},
 					vgo.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
 						GRADIENT_COLORS[0],
 						GRADIENT_COLORS[1],
 					),
-					radius = {10, 30, 30, 10},
 				)
 			}
 
@@ -309,7 +287,7 @@ main :: proc() {
 				radius := f32(SIZE)
 
 				t := animation_time * 3
-				vgo.draw_arc(
+				vgo.arc(
 					center,
 					t,
 					t + math.TAU * 0.75,
@@ -377,7 +355,10 @@ main :: proc() {
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
-				vgo.rotate(math.TAU * ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0))
+				vgo.rotate(
+					math.TAU *
+					ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0),
+				)
 				vgo.fill_glyph(
 					icon_font.glyphs[int(animation_time + 0.1) % len(icon_font.glyphs)],
 					size,
@@ -388,7 +369,7 @@ main :: proc() {
 						GRADIENT_COLORS[0],
 						GRADIENT_COLORS[1],
 					),
-					pixel_range = (size / icon_font.size) * icon_font.distance_range
+					pixel_range = (size / icon_font.size) * icon_font.distance_range,
 				)
 			}
 		case 1:
@@ -414,11 +395,13 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				light_font,
 				text_size,
 				box.lo,
-				options = {
-					wrap = .Word,
-					max_width = box.hi.x - box.lo.x,
-				},
-				paint = vgo.make_linear_gradient(box.lo, box.hi, GRADIENT_COLORS[0], GRADIENT_COLORS[1]),
+				options = {wrap = .Word, max_width = box.hi.x - box.lo.x},
+				paint = vgo.make_linear_gradient(
+					box.lo,
+					box.hi,
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
 			)
 		case 2:
 			{
@@ -431,7 +414,13 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(animation_time * 0.1)
-				vgo.fill_text(text, regular_font, text_size, -size / 2 + 4, paint = vgo.GRAY(0.025))
+				vgo.fill_text(
+					text,
+					regular_font,
+					text_size,
+					-size / 2 + 4,
+					paint = vgo.GRAY(0.025),
+				)
 				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
 			}
 			{
@@ -459,28 +448,61 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				vgo.fill_text(text, regular_font, text_size, center - size / 2, paint = vgo.WHITE)
 			}
 		case 3:
-			box := layout.bounds;
+			box := layout.bounds
 			left_box := vgo.Box{box.lo, {(box.lo.x + box.hi.x) / 2, box.hi.y}}
 			right_box := vgo.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
-			vgo.fill_box(left_box, vgo.make_linear_gradient(left_box.lo, left_box.hi, GRADIENT_COLORS[0], GRADIENT_COLORS[1]))
+			vgo.fill_box(
+				left_box,
+				paint = vgo.make_linear_gradient(
+					left_box.lo,
+					left_box.hi,
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
+			)
 			left_box.lo += 20
 			right_box.lo += 20
 			left_box.hi -= 20
 			right_box.hi -= 20
-			vgo.fill_text(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
+			vgo.fill_text(
+				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
 
 Nam in nulla justo. Praesent eget neque pretium, consectetur purus sit amet, placerat nulla. Vestibulum lacinia enim vel egestas iaculis. Nulla congue quam nulla, sit amet placerat nunc vulputate nec. Vestibulum ante felis, pellentesque in nibh ac, tempor faucibus mi. Duis id arcu sit amet lorem tempus volutpat sit amet pretium justo. Integer tincidunt felis enim, sed ornare mi pellentesque a. Suspendisse potenti. Quisque blandit posuere ipsum, vitae vestibulum mauris placerat a. Nunc sed ante gravida, viverra est in, hendrerit est. Phasellus libero augue, posuere eu bibendum ut, semper non justo. Vestibulum maximus, nulla sed gravida porta, tellus erat dapibus augue, sed lacinia augue sapien eget velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
 
-Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`, light_font, 20, left_box.lo, {max_width = left_box.hi.x - left_box.lo.x, wrap = .Word}, vgo.BLACK)
+Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`,
+				light_font,
+				20,
+				left_box.lo,
+				{max_width = left_box.hi.x - left_box.lo.x, wrap = .Word},
+				vgo.BLACK,
+			)
 
-		vgo.fill_text(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
+			vgo.fill_text(
+				`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
 
 Nam in nulla justo. Praesent eget neque pretium, consectetur purus sit amet, placerat nulla. Vestibulum lacinia enim vel egestas iaculis. Nulla congue quam nulla, sit amet placerat nunc vulputate nec. Vestibulum ante felis, pellentesque in nibh ac, tempor faucibus mi. Duis id arcu sit amet lorem tempus volutpat sit amet pretium justo. Integer tincidunt felis enim, sed ornare mi pellentesque a. Suspendisse potenti. Quisque blandit posuere ipsum, vitae vestibulum mauris placerat a. Nunc sed ante gravida, viverra est in, hendrerit est. Phasellus libero augue, posuere eu bibendum ut, semper non justo. Vestibulum maximus, nulla sed gravida porta, tellus erat dapibus augue, sed lacinia augue sapien eget velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
 
-Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`, light_font, 20, right_box.lo, {max_width = right_box.hi.x - right_box.lo.x, wrap = .Word}, vgo.make_linear_gradient(right_box.lo, right_box.hi, GRADIENT_COLORS[0], GRADIENT_COLORS[1]))
+Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`,
+				light_font,
+				20,
+				right_box.lo,
+				{max_width = right_box.hi.x - right_box.lo.x, wrap = .Word},
+				vgo.make_linear_gradient(
+					right_box.lo,
+					right_box.hi,
+					GRADIENT_COLORS[0],
+					GRADIENT_COLORS[1],
+				),
+			)
 		}
 
-		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), light_font, 20, {}, paint = vgo.GREEN)
+		vgo.fill_text(
+			fmt.tprintf("FPS: %.0f", vgo.get_fps()),
+			light_font,
+			20,
+			{},
+			paint = vgo.GREEN,
+		)
 
 		{
 			text := "[A] play/pause animation\n[Right] next page\n[Left] previous page"
