@@ -96,7 +96,7 @@ main :: proc() {
 		presentMode = caps.presentModes[0],
 		alphaMode   = caps.alphaModes[0],
 		device      = device,
-		format      = .RGBA8Unorm,
+		format      = .BGRA8Unorm,
 		usage       = {.RenderAttachment},
 	}
 	// fmt.println(caps.formats[:caps.formatCount])
@@ -106,14 +106,14 @@ main :: proc() {
 	vgo.start(device, surface, surface_config.format)
 	defer vgo.done()
 
-	font_24px, _ := vgo.load_font_from_image_and_json(
-		"fonts/SF-Pro-Display-Regular-24px.png",
-		"fonts/SF-Pro-Display-Regular-24px.json",
+	light_font, _ := vgo.load_font_from_image_and_json(
+		"fonts/Roboto-Light-24px.png",
+		"fonts/Roboto-Light-24px.json",
 	)
 
-	font_48px, _ := vgo.load_font_from_image_and_json(
-		"fonts/SF-Pro-Display-Regular-48px.png",
-		"fonts/SF-Pro-Display-Regular-48px.json",
+	regular_font, _ := vgo.load_font_from_image_and_json(
+		"fonts/Outfit-Regular-32px.png",
+		"fonts/Outfit-Regular-32px.json",
 	)
 
 	icon_font, _ := vgo.load_font_from_image_and_json(
@@ -194,6 +194,8 @@ main :: proc() {
 
 		switch page {
 		case 0:
+			vgo.fill_glyph(vgo.get_font_glyph(regular_font, 'd') or_else panic(""), 128, 100, vgo.WHITE, 8.0)
+
 			{
 				container := get_box(&layout)
 				center := (container.lo + container.hi) / 2
@@ -409,7 +411,7 @@ Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet m
 Donec elit purus, lobortis ut porttitor nec, elementum eu metus. Aliquam erat volutpat. Morbi dictum libero sed lorem malesuada, a egestas enim viverra. Cras eget euismod turpis. Aenean auctor nisl vel tristique consectetur. Sed vitae est id velit vestibulum tempus. Nullam sodales elit nibh, id hendrerit enim hendrerit in. Aenean sed sodales enim. Etiam a purus nec mi tempus fermentum non in turpis. Duis ullamcorper, tortor at euismod egestas, turpis justo eleifend dui, eu hendrerit nunc ligula et felis. Phasellus nec felis in nisi scelerisque fermentum sit amet sit amet justo. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut quam mi, sodales et urna eget, egestas hendrerit magna. Aenean ac nulla vitae nibh molestie dictum. Cras sapien mauris, dignissim quis metus a, semper dignissim dui.
 
 Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit volutpat, sapien ante convallis velit, vitae fermentum risus eros ac sapien. Nullam sit amet imperdiet dolor. Nullam dapibus eleifend lorem dapibus iaculis. Nulla euismod diam nec pretium rutrum. Duis tempus gravida tempor. Nulla sit amet dapibus tellus. Nunc elementum vitae purus at lacinia. Curabitur a finibus quam, ut auctor magna. Cras commodo viverra nulla, sit amet rutrum massa. Nunc pharetra tortor vel dui egestas, sed euismod lacus tempor. Curabitur eu erat a odio tincidunt fermentum vitae quis turpis.`,
-				font_24px if text_size < 32 else font_48px,
+				light_font,
 				text_size,
 				box.lo,
 				options = {
@@ -423,14 +425,14 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				text := "Rotating ünicode téxt!"
 				text_size := f32(48)
 				center := canvas_size / 2
-				size := vgo.measure_text(text, font_48px, text_size)
+				size := vgo.measure_text(text, regular_font, text_size)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(animation_time * 0.1)
-				vgo.fill_text(text, font_48px, text_size, -size / 2 + 4, paint = vgo.GRAY(0.025))
-				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.WHITE)
+				vgo.fill_text(text, regular_font, text_size, -size / 2 + 4, paint = vgo.GRAY(0.025))
+				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
 			}
 			{
 				box := layout.bounds
@@ -438,13 +440,13 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				text := "Stretched text"
 				text_size := f32(48)
 				center := canvas_size / 2 + {0, -200}
-				size := vgo.measure_text(text, font_48px, text_size)
+				size := vgo.measure_text(text, regular_font, text_size)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.scale({1.0 + math.sin(animation_time) * 0.5, 1.0})
-				vgo.fill_text(text, font_48px, text_size, -size / 2, paint = vgo.WHITE)
+				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
 			}
 			{
 				box := layout.bounds
@@ -452,23 +454,41 @@ Phasellus tempor hendrerit nisi eu gravida. Donec fringilla, justo nec suscipit 
 				text := "Dynamic text size"
 				text_size := f32(48) + math.sin(animation_time) * 24
 				center := canvas_size / 2 + {0, 200}
-				size := vgo.measure_text(text, font_48px, text_size)
+				size := vgo.measure_text(text, regular_font, text_size)
 
-				vgo.fill_text(text, font_24px if text_size < 32 else font_48px, text_size, center - size / 2, paint = vgo.WHITE)
+				vgo.fill_text(text, regular_font, text_size, center - size / 2, paint = vgo.WHITE)
 			}
 		case 3:
-			vgo.fill_box(layout.bounds, vgo.make_linear_gradient(layout.bounds.lo, layout.bounds.hi, vgo.WHITE, vgo.fade(vgo.WHITE, 0.0)), 40)
+			box := layout.bounds;
+			left_box := vgo.Box{box.lo, {(box.lo.x + box.hi.x) / 2, box.hi.y}}
+			right_box := vgo.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
+			vgo.fill_box(left_box, vgo.make_linear_gradient(left_box.lo, left_box.hi, GRADIENT_COLORS[0], GRADIENT_COLORS[1]))
+			left_box.lo += 20
+			right_box.lo += 20
+			left_box.hi -= 20
+			right_box.hi -= 20
+			vgo.fill_text(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
+
+Nam in nulla justo. Praesent eget neque pretium, consectetur purus sit amet, placerat nulla. Vestibulum lacinia enim vel egestas iaculis. Nulla congue quam nulla, sit amet placerat nunc vulputate nec. Vestibulum ante felis, pellentesque in nibh ac, tempor faucibus mi. Duis id arcu sit amet lorem tempus volutpat sit amet pretium justo. Integer tincidunt felis enim, sed ornare mi pellentesque a. Suspendisse potenti. Quisque blandit posuere ipsum, vitae vestibulum mauris placerat a. Nunc sed ante gravida, viverra est in, hendrerit est. Phasellus libero augue, posuere eu bibendum ut, semper non justo. Vestibulum maximus, nulla sed gravida porta, tellus erat dapibus augue, sed lacinia augue sapien eget velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
+
+Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`, light_font, 20, left_box.lo, {max_width = left_box.hi.x - left_box.lo.x, wrap = .Word}, vgo.BLACK)
+
+		vgo.fill_text(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
+
+Nam in nulla justo. Praesent eget neque pretium, consectetur purus sit amet, placerat nulla. Vestibulum lacinia enim vel egestas iaculis. Nulla congue quam nulla, sit amet placerat nunc vulputate nec. Vestibulum ante felis, pellentesque in nibh ac, tempor faucibus mi. Duis id arcu sit amet lorem tempus volutpat sit amet pretium justo. Integer tincidunt felis enim, sed ornare mi pellentesque a. Suspendisse potenti. Quisque blandit posuere ipsum, vitae vestibulum mauris placerat a. Nunc sed ante gravida, viverra est in, hendrerit est. Phasellus libero augue, posuere eu bibendum ut, semper non justo. Vestibulum maximus, nulla sed gravida porta, tellus erat dapibus augue, sed lacinia augue sapien eget velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
+
+Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`, light_font, 20, right_box.lo, {max_width = right_box.hi.x - right_box.lo.x, wrap = .Word}, vgo.make_linear_gradient(right_box.lo, right_box.hi, GRADIENT_COLORS[0], GRADIENT_COLORS[1]))
 		}
 
-		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), font_24px, 20, {}, paint = vgo.GREEN)
+		vgo.fill_text(fmt.tprintf("FPS: %.0f", vgo.get_fps()), light_font, 20, {}, paint = vgo.GREEN)
 
 		{
 			text := "[A] play/pause animation\n[Right] next page\n[Left] previous page"
 			text_size := f32(18)
-			size := vgo.measure_text(text, font_24px, text_size)
+			size := vgo.measure_text(text, light_font, text_size)
 			vgo.fill_text(
 				text,
-				font_24px,
+				light_font,
 				text_size,
 				{0, canvas_size.y - size.y},
 				paint = vgo.Color(255),

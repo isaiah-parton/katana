@@ -90,7 +90,7 @@ make_text_iterator :: proc(
 	iter.font = font
 	iter.size = size
 	iter.options = options
-	iter.options.spacing = max(1, iter.options.spacing)
+	iter.options.spacing = max(2, iter.options.spacing)
 	iter.max_width = options.max_width.? or_else math.F32_MAX
 	return
 }
@@ -364,9 +364,10 @@ fill_text :: proc(
 	_text, _ := make_text(text, font, size, options)
 	// Determine optimal pixel range for antialiasing
 	pixel_range := max(font.distance_range, (size / font.size) * font.distance_range)
+	paint_index := paint_index_from_option(paint)
 	// Draw the glyphs
 	for &glyph in _text.glyphs {
-		fill_glyph(glyph, size, origin + glyph.offset, paint, pixel_range = pixel_range)
+		fill_glyph(glyph, size, origin + glyph.offset, paint_index, pixel_range = pixel_range)
 	}
 	return _text.size
 }

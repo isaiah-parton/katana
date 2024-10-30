@@ -399,7 +399,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     case 9u: {
    		let msd = textureSample(atlas_tex, atlas_samp, shape.cv0).rgb;
       let sd = median(msd.r, msd.g, msd.b);
-      d = -(shape.radius[0] * (sd - 0.5)) + 0.5;
+      d = smoothstep(0.5, -0.5, shape.radius[0] * (sd - 0.5));
     }
     // Line segment
     case 10u: {
