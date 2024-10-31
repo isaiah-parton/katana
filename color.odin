@@ -9,16 +9,21 @@ import "core:strings"
 Color :: [4]u8
 
 // Default colors
-WHITE			:: Color(255)
-BLACK			:: Color{0, 0, 0, 255}
-GRAY 			:: proc(shade: f32) -> Color {return {u8(shade * 255.0), u8(shade * 255.0), u8(shade * 255.0), 255}}
-YELLOW 		:: Color{255, 255, 0, 255}
-BLUE 			:: Color{0, 115, 255, 255}
+WHITE :: Color(255)
+BLACK :: Color{0, 0, 0, 255}
+GRAY :: proc(shade: f32) -> Color {return{
+		u8(shade * 255.0),
+		u8(shade * 255.0),
+		u8(shade * 255.0),
+		255,
+	}}
+YELLOW :: Color{255, 255, 0, 255}
+BLUE :: Color{0, 115, 255, 255}
 DEEP_BLUE :: Color{0, 0, 255, 255}
 TURQUOISE :: Color{0, 255, 160, 255}
-GREEN 		:: Color{0, 210, 58, 255}
-RED 			:: Color{215, 23, 23, 255}
-GOLD 			:: Color{255, 195, 0, 255}
+GREEN :: Color{0, 210, 58, 255}
+RED :: Color{215, 23, 23, 255}
+GOLD :: Color{255, 195, 0, 255}
 
 
 parse_rgba :: proc(str: string) -> (res: Color, ok: bool) {
@@ -81,6 +86,7 @@ hsva_from_color :: proc(color: Color) -> (hsva: [4]f32) {
 
 	return
 }
+
 color_from_hsva :: proc(hsva: [4]f32) -> Color {
 	r, g, b, k, t: f32
 
@@ -106,7 +112,8 @@ hsl_from_norm_rgb :: proc(rgb: [3]f32) -> [3]f32 {
 	v := max(rgb.r, rgb.g, rgb.b)
 	c := v - min(rgb.r, rgb.g, rgb.b)
 	f := 1 - abs(v + v - c - 1)
-	h := ((rgb.g - rgb.b) / c) if (c > 0 && v == rgb.r) else ((2 + (rgb.b - rgb.r) / c) if v == rgb.g else (4 + (rgb.r - rgb.g) / c))
+	h :=
+		((rgb.g - rgb.b) / c) if (c > 0 && v == rgb.r) else ((2 + (rgb.b - rgb.r) / c) if v == rgb.g else (4 + (rgb.r - rgb.g) / c))
 	return {60 * ((h + 6) if h < 0 else h), (c / f) if f > 0 else 0, (v + v - c) / 2}
 }
 
@@ -114,6 +121,11 @@ color_from :: proc {
 	color_from_hex,
 	color_from_hsl,
 	color_from_hsva,
+}
+
+hsl_from :: proc {
+	hsl_from_norm_rgb,
+	hsl_from_color,
 }
 
 mix :: proc(time: f32, colors: ..Color) -> Color {
@@ -142,21 +154,11 @@ mix :: proc(time: f32, colors: ..Color) -> Color {
 	return {}
 }
 
-set_color_brightness :: proc(color: Color, value: f32) -> Color {
-	delta := clamp(i32(255.0 * value), -255, 255)
-	return {
-		cast(u8)clamp(i32(color.r) + delta, 0, 255),
-		cast(u8)clamp(i32(color.g) + delta, 0, 255),
-		cast(u8)clamp(i32(color.b) + delta, 0, 255),
-		color.a,
-	}
+luminance_of :: proc(color: Color) -> f32 {
+	return (f32(color.r) / 255.0) * 0.299 + (f32(color.g) / 255.0) * 0.587 + (f32(color.b) / 255.0) * 0.114
 }
 
-get_color_brightness :: proc(color: Color) -> f32 {
-	return (f32(color.r) / 255) * 0.3 + (f32(color.g) / 255) * 0.59 + (f32(color.b) / 255) * 0.11
-}
-
-color_to_hsl :: proc(color: Color) -> [4]f32 {
+hsl_from_color :: proc(color: Color) -> [4]f32 {
 	hsva := linalg.vector4_rgb_to_hsl(
 		linalg.Vector4f32 {
 			f32(color.r) / 255.0,

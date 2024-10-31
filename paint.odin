@@ -75,7 +75,7 @@ Stroke_Justify :: enum {
 // The paint data sent to the GPU
 Paint :: struct #align (8) {
 	kind: Paint_Kind,
-	pad0: [1]u32,
+	noise: f32,
 	cv0:  [2]f32,
 	cv1:  [2]f32,
 	pad1: [2]u32,
@@ -176,8 +176,10 @@ make_linear_gradient :: proc(
 	start_point, end_point: [2]f32,
 	start_color, end_color: Color,
 ) -> Paint {
+	diff := linalg.abs(normalize_color(end_color) - normalize_color(start_color))
 	return Paint {
 		kind = .Linear_Gradient,
+		noise = (1.0 - (diff.x + diff.y + diff.z) * 0.333) * 0.012,
 		cv0 = start_point,
 		cv1 = end_point,
 		col0 = normalize_color(start_color),
@@ -187,8 +189,10 @@ make_linear_gradient :: proc(
 
 // Construct a radial gradient paint for the GPU
 make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -> Paint {
+	diff := linalg.abs(normalize_color(outer) - normalize_color(inner))
 	return Paint {
 		kind = .Radial_Gradient,
+		noise = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05,
 		cv0 = center,
 		cv1 = {radius, 0},
 		col0 = normalize_color(inner),

@@ -300,7 +300,7 @@ present :: proc() {
 		time = f32(time.duration_seconds(time.since(core.start_time))),
 		gamma = 1.0,
 		text_unit_range = 2.0 / core.atlas_size,
-		text_out_bias = 0.2,
+		text_out_bias = 0.0,
 		text_in_bias = 0.0,
 	}
 

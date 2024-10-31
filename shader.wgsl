@@ -41,6 +41,7 @@ var<storage> shapes: Shapes;
 
 struct Paint {
 	kind: u32,
+	noise: f32,
 	cv0: vec2<f32>,
 	cv1: vec2<f32>,
 	col0: vec4<f32>,
@@ -288,15 +289,15 @@ fn screen_px_range(texcoord: vec2<f32>) -> f32 {
 	let screen_tex_size = vec2<f32>(1.0) / fwidth(texcoord);
 	return max(0.5 * dot(vec2<f32>(uniforms.text_unit_range), screen_tex_size), 2.0);
 }
-fn contour(dist: f32, texcoord: vec2<f32>) -> f32 {
+fn contour(dist: f32, bias: f32, texcoord: vec2<f32>) -> f32 {
 	let width = screen_px_range(texcoord);
-	let e = width * (dist - 0.5 + uniforms.text_in_bias) + 0.5 + uniforms.text_out_bias;
+	let e = width * (dist - 0.5 + uniforms.text_in_bias) + 0.5 + (uniforms.text_out_bias + bias);
 	return smoothstep(0.0, 1.0, e);
 }
-fn sample_msdf(uv: vec2<f32>) -> f32 {
+fn sample_msdf(uv: vec2<f32>, bias: f32) -> f32 {
 	let msd = textureSample(atlas_tex, atlas_samp, uv).rgb;
-	let sd = median(msd.r, msd.g, msd.b);
-	return contour(sd, uv);
+	let dist = median(msd.r, msd.g, msd.b);
+	return contour(dist, bias, uv);
 }
 
 // Returns the signed sistance to a given shape
@@ -405,12 +406,13 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     	// Supersampling parameters
     	let dscale = 0.354;
      	let uv = shape.cv0;
+      let bias = shape.radius[0];
       let duv = dscale * (dpdx(uv) + dpdy(uv));
       let box = vec4<f32>(uv - duv, uv + duv);
       // Supersample the sdf texture
-      let asum = sample_msdf(box.xy) + sample_msdf(box.zw) + sample_msdf(box.xw) + sample_msdf(box.zy);
+      let asum = sample_msdf(box.xy, bias) + sample_msdf(box.zw, bias) + sample_msdf(box.xw, bias) + sample_msdf(box.zy, bias);
       // Determine opacity
-      var opacity = (sample_msdf(uv) + 0.5 * asum) / 3.0;
+      var opacity = (sample_msdf(uv, bias) + 0.5 * asum) / 3.0;
       // Reflect opacity with distance result
       d = 1.0 - opacity;
     }
@@ -570,22 +572,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 				det * dir.y, det * dir.x,
 			);
 	    var t = clamp((xform * (in.p - paint.cv0)).x, 0.0, 1.0);
-			// Dithering
-			let diff = abs(paint.col1 - paint.col0);
 			// Mix color output
-			let df = (diff.x + diff.y + diff.z + diff.w) * 0.0025;
-			// Mix color output
-	    out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
+	    out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
 		}
 		// Radial gradient
 		case 6u: {
 			let r = paint.cv1.x;
 			var t = clamp(length(in.p - paint.cv0) / r, 0.0, 1.0);
-			// Dithering
-			let diff = abs(paint.col1 - paint.col0);
-			// Mix color output
-			let df = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05;
-	  	out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-df, df, random(in.p))));
+	  	out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
 		}
 		// Distance field
 		case 7u: {

@@ -39,6 +39,20 @@ Text_Line :: struct {
 	size:        [2]f32,
 }
 
+Text_Layout :: struct {
+	font:            Font,
+	font_scale:      f32,
+	glyphs:          []Text_Glyph,
+	lines:           []Text_Line,
+	size:            [2]f32,
+	selection:       [2]int,
+	glyph_selection: [2]int,
+	// Interaction results
+	mouse_index:     int,
+	hovered_glyph:   int,
+	hovered_line:    int,
+}
+
 Text_Iterator :: struct {
 	text:       string,
 	options:    Text_Options,
@@ -79,20 +93,6 @@ Text_Options :: struct {
 	hidden:    bool,
 }
 
-Text_Layout :: struct {
-	font:            Font,
-	font_scale:      f32,
-	glyphs:          []Text_Glyph,
-	lines:           []Text_Line,
-	size:            [2]f32,
-	selection:       [2]int,
-	glyph_selection: [2]int,
-	// Interaction results
-	mouse_index:     int,
-	hovered_glyph:   int,
-	hovered_line:    int,
-}
-
 make_text_iterator :: proc(
 	text: string,
 	font: Font,
@@ -129,7 +129,7 @@ make_text_layout :: proc(
 	line: Text_Line = {
 		offset = 0,
 	}
-	line_height := iter.font.line_height * iter.size
+	line_height := (font.ascend - font.descend) * iter.size
 
 	layout.selection = -1
 	layout.hovered_glyph = -1
@@ -148,6 +148,18 @@ make_text_layout :: proc(
 			at_end = true
 		}
 
+		// Figure out highlighting and cursor pos
+		if selection, ok := selection.?; ok {
+			if selection[0] == iter.index {
+				layout.selection[0] = (len(core.text_glyphs) - first_glyph) - 1
+				layout.glyph_selection[0] = len(core.text_glyphs) - first_glyph
+			}
+			if selection[1] == iter.index {
+				layout.glyph_selection[1] = len(core.text_glyphs) - first_glyph
+			}
+			// lo, hi := min(selection[0], selection[1]), max(selection[0], selection[1])
+		}
+
 		// Add a glyph
 		append(
 			&core.text_glyphs,
@@ -158,14 +170,6 @@ make_text_layout :: proc(
 				offset = iter.offset,
 			},
 		)
-
-		// Figure out highlighting and cursor pos
-		if selection, ok := selection.?; ok {
-			if selection[0] == iter.index {
-				layout.selection[0] = (len(core.text_glyphs) - first_glyph) - 1
-			}
-			lo, hi := min(selection[0], selection[1]), max(selection[0], selection[1])
-		}
 
 		// Check for hovered index
 		diff := abs(iter.offset.x - mouse.x)
@@ -205,7 +209,7 @@ make_text_layout :: proc(
 
 			// Update text size
 			layout.size.x = max(layout.size.x, iter.line_width)
-			layout.size.y += iter.font.line_height * iter.size
+			layout.size.y += line_height
 		}
 
 		if at_end {
@@ -365,9 +369,16 @@ measure_text :: proc(text: string, font: Font, size: f32, options: Text_Options 
 fill_text_layout :: proc(layout: Text_Layout, origin: [2]f32, paint: Paint_Option = nil) {
 	// Determine optimal pixel range for antialiasing
 	paint_index := paint_index_from_option(paint)
+	bias := glyph_bias_from_paint(paint)
 	// Draw the glyphs
 	for &glyph in layout.glyphs {
-		fill_glyph(glyph, layout.font_scale, origin + glyph.offset, paint_index)
+		fill_glyph(
+			glyph,
+			layout.font_scale,
+			origin + glyph.offset,
+			paint = paint_index,
+			bias = bias,
+		)
 	}
 }
 
@@ -381,6 +392,7 @@ fill_text_layout_aligned :: proc(
 	origin := origin
 	// Determine optimal pixel range for antialiasing
 	paint_index := paint_index_from_option(paint)
+	bias := glyph_bias_from_paint(paint)
 
 	switch align_x {
 	case .Left:
@@ -402,8 +414,21 @@ fill_text_layout_aligned :: proc(
 
 	// Draw the glyphs
 	for &glyph in layout.glyphs {
-		fill_glyph(glyph, layout.font_scale, origin + glyph.offset, paint_index)
+		fill_glyph(
+			glyph,
+			layout.font_scale,
+			origin + glyph.offset,
+			paint = paint_index,
+			bias = bias,
+		)
 	}
+}
+
+glyph_bias_from_paint :: proc(paint: Paint_Option) -> f32 {
+	if color, ok := paint.(Color); ok {
+		return 0.5 - luminance_of(color) * 0.5
+	}
+	return 0.0
 }
 
 fill_text :: proc(
@@ -434,18 +459,25 @@ fill_text_aligned :: proc(
 	return layout.size
 }
 
-make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32) -> Shape {
+make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) -> Shape {
 	return Shape {
 		kind = .Glyph,
 		tex_min = glyph.source.lo / core.atlas_size,
 		tex_max = glyph.source.hi / core.atlas_size,
 		quad_min = origin + glyph.bounds.lo * size,
 		quad_max = origin + glyph.bounds.hi * size,
+		radius = {0 = bias},
 	}
 }
 
-fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Option) -> u32 {
-	shape := make_glyph(glyph, size, origin)
+fill_glyph :: proc(
+	glyph: Font_Glyph,
+	size: f32,
+	origin: [2]f32,
+	paint: Paint_Option = nil,
+	bias: f32 = 0.0,
+) -> u32 {
+	shape := make_glyph(glyph, size, origin, bias)
 	shape.paint = paint_index_from_option(paint)
 	return add_shape(shape)
 }
