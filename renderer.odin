@@ -375,7 +375,6 @@ present :: proc() {
 				addressModeU = .ClampToEdge,
 				addressModeV = .ClampToEdge,
 				mipmapFilter = .Linear,
-				lodMinClamp = 0,
 				maxAnisotropy = 1,
 			}
 

@@ -233,16 +233,18 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.hi = shape.cv0 + shape.radius[0]
 	}
 
-	if shape.outline == .Stroke {
-		box.lo -= shape.width / 2
-		box.hi += shape.width / 2
-	} else if shape.outline == .Glow {
-		box.lo -= shape.width
-		box.hi += shape.width
-	}
+	if shape.kind != .Glyph {
+		if shape.outline == .Stroke {
+			box.lo -= shape.width / 2
+			box.hi += shape.width / 2
+		} else if shape.outline == .Glow {
+			box.lo -= shape.width
+			box.hi += shape.width
+		}
 
-	box.lo -= 1
-	box.hi += 1
+		box.lo -= 2
+		box.hi += 2
+	}
 
 	return box
 }

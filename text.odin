@@ -105,7 +105,7 @@ make_text_iterator :: proc(
 	iter.font = font
 	iter.size = size
 	iter.options = options
-	iter.options.spacing = max(1, iter.options.spacing)
+	iter.options.spacing = max(0, iter.options.spacing)
 	iter.max_width = options.max_width.? or_else math.F32_MAX
 	return
 }
