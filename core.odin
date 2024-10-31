@@ -45,6 +45,11 @@ Core :: struct {
 	xform:                u32,
 	path_start:           u32,
 	path_point:           [2]f32,
+	text_supersample: f32,
+}
+
+set_text_supersample :: proc(amount: f32) {
+	core.text_supersample = amount
 }
 
 request_adapter_options :: proc() -> wgpu.RequestAdapterOptions {
@@ -64,18 +69,19 @@ device_descriptor :: proc() -> wgpu.DeviceDescriptor {
 
 surface_configuration :: proc(device: wgpu.Device, adapter: wgpu.Adapter, surface: wgpu.Surface) -> wgpu.SurfaceConfiguration {
 	caps := wgpu.SurfaceGetCapabilities(surface, adapter)
-	return wgpu.SurfaceConfiguration{
+	core.renderer.surface_config = wgpu.SurfaceConfiguration{
 		presentMode = caps.presentModes[0],
 		alphaMode   = caps.alphaModes[0],
 		device      = device,
-		format      = .RGBA8Unorm,
+		format      = caps.formats[0],
 		usage       = {.RenderAttachment},
 	}
+	return core.renderer.surface_config
 }
 
 // Call before using vgo
-start :: proc(device: wgpu.Device, surface: wgpu.Surface, surface_format: wgpu.TextureFormat) {
-	init_renderer_with_device_and_surface(&core.renderer, device, surface, surface_format)
+start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
+	init_renderer_with_device_and_surface(&core.renderer, device, surface)
 
 	core.atlas_size = f32(min(core.renderer.device_limits.maxTextureDimension2D, 8196))
 	core.atlas_texture = wgpu.DeviceCreateTexture(

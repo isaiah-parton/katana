@@ -105,7 +105,7 @@ make_text_iterator :: proc(
 	iter.font = font
 	iter.size = size
 	iter.options = options
-	iter.options.spacing = max(2, iter.options.spacing)
+	iter.options.spacing = max(1, iter.options.spacing)
 	iter.max_width = options.max_width.? or_else math.F32_MAX
 	return
 }
@@ -364,20 +364,10 @@ measure_text :: proc(text: string, font: Font, size: f32, options: Text_Options 
 
 fill_text_layout :: proc(layout: Text_Layout, origin: [2]f32, paint: Paint_Option = nil) {
 	// Determine optimal pixel range for antialiasing
-	pixel_range := max(
-		layout.font.distance_range,
-		(layout.font_scale / layout.font.size) * layout.font.distance_range * 0.5,
-	)
 	paint_index := paint_index_from_option(paint)
 	// Draw the glyphs
 	for &glyph in layout.glyphs {
-		fill_glyph(
-			glyph,
-			layout.font_scale,
-			origin + glyph.offset,
-			paint_index,
-			pixel_range = pixel_range,
-		)
+		fill_glyph(glyph, layout.font_scale, origin + glyph.offset, paint_index)
 	}
 }
 
@@ -390,10 +380,6 @@ fill_text_layout_aligned :: proc(
 ) {
 	origin := origin
 	// Determine optimal pixel range for antialiasing
-	pixel_range := max(
-		layout.font.distance_range,
-		(layout.font_scale / layout.font.size) * layout.font.distance_range * 0.5,
-	)
 	paint_index := paint_index_from_option(paint)
 
 	switch align_x {
@@ -416,13 +402,7 @@ fill_text_layout_aligned :: proc(
 
 	// Draw the glyphs
 	for &glyph in layout.glyphs {
-		fill_glyph(
-			glyph,
-			layout.font_scale,
-			origin + glyph.offset,
-			paint_index,
-			pixel_range = pixel_range,
-		)
+		fill_glyph(glyph, layout.font_scale, origin + glyph.offset, paint_index)
 	}
 }
 
@@ -436,7 +416,7 @@ fill_text :: proc(
 ) -> [2]f32 {
 	layout := make_text_layout(text, font, size, options)
 	fill_text_layout(layout, origin, paint)
- 	return layout.size
+	return layout.size
 }
 
 fill_text_aligned :: proc(
@@ -450,25 +430,22 @@ fill_text_aligned :: proc(
 	paint: Paint_Option = nil,
 ) -> [2]f32 {
 	layout := make_text_layout(text, font, size, options)
- 	fill_text_layout_aligned(layout, origin, align_x, align_y, paint)
-  return layout.size
+	fill_text_layout_aligned(layout, origin, align_x, align_y, paint)
+	return layout.size
 }
 
-fill_glyph :: proc(
-	glyph: Font_Glyph,
-	size: f32,
-	origin: [2]f32,
-	paint: Paint_Option,
-	pixel_range: f32 = 2.0,
-) -> u32 {
-	shape := Shape {
+make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32) -> Shape {
+	return Shape {
 		kind = .Glyph,
 		tex_min = glyph.source.lo / core.atlas_size,
 		tex_max = glyph.source.hi / core.atlas_size,
-		radius = {0 = pixel_range},
-		paint = paint_index_from_option(paint),
 		quad_min = origin + glyph.bounds.lo * size,
 		quad_max = origin + glyph.bounds.hi * size,
 	}
+}
+
+fill_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, paint: Paint_Option) -> u32 {
+	shape := make_glyph(glyph, size, origin)
+	shape.paint = paint_index_from_option(paint)
 	return add_shape(shape)
 }

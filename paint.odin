@@ -61,6 +61,8 @@ Paint_Kind :: enum u32 {
 	Radial_Gradient,
 	// SDF Visualizer
 	Distance_Field,
+	// Glyph gamma correction
+	Glyph,
 }
 
 Stroke_Justify :: enum {

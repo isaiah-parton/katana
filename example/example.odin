@@ -81,25 +81,26 @@ main :: proc() {
 	surface_config.height = u32(window_height)
 	wgpu.SurfaceConfigure(surface, &surface_config)
 
-	vgo.start(device, surface, surface_config.format)
+	fmt.println(surface_config.format)
+
+	vgo.start(device, surface)
 	defer vgo.shutdown()
 
 	// Load some fonts
 	light_font, _ := vgo.load_font_from_image_and_json(
-		"fonts/KumbhSans-Regular-16px.png",
-		"fonts/KumbhSans-Regular-16px.json",
+		"fonts/KumbhSans-Light.png",
+		"fonts/KumbhSans-Light.json",
 	)
-	regular_font, _ := vgo.load_font_from_image_and_json(
-		"fonts/KumbhSans-Regular-32px.png",
-		"fonts/KumbhSans-Regular-32px.json",
-	)
+	regular_font := light_font
 	icon_font, _ := vgo.load_font_from_image_and_json(
 		"fonts/remixicon.png",
 		"fonts/remixicon.json",
 	)
 
 	//
+	limit_fps: bool = true
 	animate: bool = true
+	enable_glyph_gamma_correction: bool = true
 	animation_time: f32 = 0.1
 	page: int
 	PAGE_COUNT :: 4
@@ -108,7 +109,9 @@ main :: proc() {
 
 	// Frame loop
 	loop: for {
-		time.sleep(time.Millisecond * 10)
+		if limit_fps {
+			time.sleep(time.Millisecond * 10)
+		}
 
 		if animate {
 			animation_time += vgo.frame_time()
@@ -126,6 +129,8 @@ main :: proc() {
 					if page < 0 do page = PAGE_COUNT - 1
 				case .RIGHT:
 					page = (page + 1) % PAGE_COUNT
+				case .F3:
+					limit_fps = !limit_fps
 				}
 			case .MOUSEMOTION:
 				mouse_point = {f32(event.motion.x), f32(event.motion.y)}
@@ -177,7 +182,6 @@ main :: proc() {
 				128,
 				100,
 				vgo.WHITE,
-				8.0,
 			)
 
 			{
@@ -375,7 +379,6 @@ main :: proc() {
 						GRADIENT_COLORS[0],
 						GRADIENT_COLORS[1],
 					),
-					pixel_range = (size / icon_font.size) * icon_font.distance_range,
 				)
 			}
 		case 1:
@@ -390,7 +393,7 @@ main :: proc() {
 			text_size := f32(24 + clamp(math.sin(animation_time), 0, 0.5) * 24)
 			vgo.fill_text(
 				LOREM_IPSUM,
-				regular_font,
+				light_font,
 				text_size,
 				box.lo,
 				options = {wrap = .Word, max_width = box.hi.x - box.lo.x},
@@ -403,7 +406,7 @@ main :: proc() {
 			)
 		case 2:
 			{
-				text := "Rotating ünicode téxt!"
+				text := "Rotating text!"
 				text_size := f32(48)
 				center := canvas_size / 2
 				size := vgo.measure_text(text, regular_font, text_size)
@@ -417,7 +420,7 @@ main :: proc() {
 					regular_font,
 					text_size,
 					-size / 2 + 4,
-					paint = vgo.GRAY(0.025),
+					paint = vgo.GRAY(0.01),
 				)
 				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
 			}
@@ -432,14 +435,14 @@ main :: proc() {
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
-				vgo.scale({1.0 + math.sin(animation_time) * 0.5, 1.0})
+				vgo.scale({1.0 + math.cos(animation_time) * 0.5, 1.0})
 				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
 			}
 			{
 				box := layout.bounds
 
 				text := "Dynamic text size"
-				text_size := f32(48) + math.sin(animation_time) * 24
+				text_size := f32(48) + math.sin(animation_time * 0.3) * 32
 				center := canvas_size / 2 + {0, 200}
 				size := vgo.measure_text(text, regular_font, text_size)
 
@@ -451,12 +454,7 @@ main :: proc() {
 			right_box := vgo.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
 			vgo.fill_box(
 				left_box,
-				paint = vgo.make_linear_gradient(
-					left_box.lo,
-					left_box.hi,
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
+				paint = vgo.WHITE,
 			)
 			left_box.lo += 20
 			right_box.lo += 20
@@ -470,19 +468,13 @@ main :: proc() {
 				{max_width = left_box.hi.x - left_box.lo.x, wrap = .Word},
 				vgo.BLACK,
 			)
-
 			vgo.fill_text(
 				LOREM_IPSUM,
 				light_font,
 				16,
 				right_box.lo,
 				{max_width = right_box.hi.x - right_box.lo.x, wrap = .Word},
-				vgo.make_linear_gradient(
-					right_box.lo,
-					right_box.hi,
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
+				vgo.WHITE,
 			)
 		}
 

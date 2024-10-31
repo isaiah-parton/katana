@@ -1,6 +1,10 @@
 struct Uniforms {
   size: vec2<f32>,
   time: f32,
+  gamma: f32,
+  text_unit_range: f32,
+  text_in_bias: f32,
+  text_out_bias: f32,
 };
 
 @group(0)
@@ -90,14 +94,13 @@ var user_samp: sampler;
 @binding(3)
 var user_tex: texture_2d<f32>;
 
+// Signed-distance functions
 fn sd_subtract(d1: f32, d2: f32) -> f32 {
 	return max(-d1, d2);
 }
-
 fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
 	return length(p) - r + 0.5;
 }
-
 fn sd_pie(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, r: f32) -> f32 {
 	var pp = p * mat2x2<f32>(sca,vec2<f32>(-sca.y,sca.x));
 	pp.x = abs(pp.x);
@@ -105,17 +108,13 @@ fn sd_pie(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, r: f32) -> f32 {
 	let m = length(pp - scb * clamp(dot(pp, scb), 0.0, r));
 	return max(l, m * sign(scb.y * pp.x - scb.x * pp.y)) + 1;
 }
-
 fn sd_pie2(p: vec2<f32>, n: vec2<f32>) -> f32 {
 	return abs(p).x * n.y + p.y * n.x;
 }
-
 fn sd_arc_square(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, radius: f32, width: f32) -> f32 {
-	// Rotate point.
   let pp = p * mat2x2<f32>(sca,vec2<f32>(-sca.y,sca.x));
   return sd_subtract(sd_pie2(pp, vec2<f32>(scb.x, -scb.y)), abs(sd_circle(pp, radius)) - width);
 }
-
 fn sd_arc(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, ra: f32, rb: f32) -> f32 {
 	var pp = p * mat2x2<f32>(vec2<f32>(sca.x,sca.y),vec2<f32>(-sca.y,sca.x));
   pp.x = abs(pp.x);
@@ -127,7 +126,6 @@ fn sd_arc(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, ra: f32, rb: f32) -> f32
   }
   return sqrt( dot(pp,pp) + ra*ra - 2.0*ra*k ) - rb + 1;
 }
-
 fn sd_box(p: vec2<f32>, b: vec2<f32>, rr: vec4<f32>) -> f32 {
 	var r: vec2<f32>;
 	if (p.x > 0.0) {
@@ -141,7 +139,6 @@ fn sd_box(p: vec2<f32>, b: vec2<f32>, rr: vec4<f32>) -> f32 {
   let q = abs(p) - b + r.x;
   return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x + 0.5;
 }
-
 fn sd_bezier_approx(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let v0 = normalize(B - A); let v1 = normalize(C - A);
   let det = v0.x * v1.y - v1.x * v0.y;
@@ -150,14 +147,12 @@ fn sd_bezier_approx(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f
   }
   return length(get_distance_vector(A-p, B-p, C-p));
 }
-
 fn sd_line(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 	let pa = p - a;
 	let ba = b - a;
 	let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
 	return length(pa - ba * h) + 1.0;
 }
-
 fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let a = B - A;
   let b = A - 2.0*B + C;
@@ -191,60 +186,6 @@ fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   }
   return sqrt( res );
 }
-
-fn rounded_box_shadow_x(x: f32, y: f32, sigma: f32, corner: f32, half_size: vec2<f32>) -> f32 {
-	let delta = min(half_size.y - corner - abs(y), 0.0);
-	let curved = half_size.x - corner + sqrt(max(0.0, corner * corner - delta * delta));
-  let integral = 0.5 + 0.5 * erf((x + vec2(-curved, curved)) * (sqrt(0.5) / sigma));
-  return integral.y - integral.x;
-}
-
-fn gaussian(x: f32, sigma: f32) -> f32 {
-	let pi: f32 = 3.141592653589793;
-  return exp(-(x * x) / (2.0 * sigma * sigma)) / (sqrt(2.0 * pi) * sigma);
-}
-
-fn dot2(v: vec2<f32>) -> f32 {
-    return dot(v, v);
-}
-
-fn get_distance_vector(b0: vec2<f32>, b1: vec2<f32>, b2: vec2<f32>) -> vec2<f32> {
-
-    let a = det(b0, b2);
-    let b = 2.0 * det(b1, b0);
-    let d = 2.0 * det(b2, b1);
-
-    let f = b * d - a * a;
-    let d21 = b2 - b1; let d10 = b1 - b0; let d20 = b2 - b0;
-    var gf = 2.0 * (b * d21 + d * d10 + a * d20);
-    gf = vec2<f32>(gf.y, -gf.x);
-    let pp = -f * gf / dot(gf, gf);
-    let d0p = b0 - pp;
-    let ap = det(d0p, d20); let bp = 2.0 * det(d10, d0p);
-    // (note that 2*ap+bp+dp=2*a+b+d=4*area(b0,b1,b2))
-    let t = clamp((ap + bp) / (2.0 * a + b + d), 0.0, 1.0);
-    return mix(mix(b0, b1, t), mix(b1, b2, t), t);
-}
-
-fn det(a: vec2<f32>, b: vec2<f32>) -> f32 { return a.x * b.y - b.x * a.y; }
-
-fn erf(x: vec2<f32>) -> vec2<f32> {
-    let s = sign(x);
-    let a = abs(x);
-    var y = 1.0 + (0.278393 + (0.230389 + 0.078108 * (a * a)) * a) * a;
-    y *= y;
-    return s - s / (y * y);
-}
-
-fn lineTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> bool {
-  let cs = i32(A.y < p.y) * 2 + i32(B.y < p.y);
-  if(cs == 0 || cs == 3) { return false; } // trivial reject
-  let v = B - A;
-  // Intersect line with x axis.
-  let t = (p.y - A.y) / v.y;
-  return (A.x + t * v.x) > p.x;
-}
-
 fn sd_line_test(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> f32 {
 	let dir = normalize(B - A);
 	var det = 1.0 / ((dir.x * dir.x) - (-dir.y * dir.y));
@@ -254,7 +195,6 @@ fn sd_line_test(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> f32 {
 	);
 	return (xform * (p - A)).y / 4.0;
 }
-
 fn sd_triangle(p: vec2<f32>, p0: vec2<f32>, p1: vec2<f32>, p2: vec2<f32>) -> f32 {
 	let e0 = p1 - p0;
 	let e1 = p2 - p1;
@@ -272,6 +212,56 @@ fn sd_triangle(p: vec2<f32>, p0: vec2<f32>, p1: vec2<f32>, p2: vec2<f32>) -> f32
   return -sqrt(d.x) * sign(d.y);
 }
 
+// Blur function for drop shadows
+fn rounded_box_shadow_x(x: f32, y: f32, sigma: f32, corner: f32, half_size: vec2<f32>) -> f32 {
+	let delta = min(half_size.y - corner - abs(y), 0.0);
+	let curved = half_size.x - corner + sqrt(max(0.0, corner * corner - delta * delta));
+  let integral = 0.5 + 0.5 * erf((x + vec2(-curved, curved)) * (sqrt(0.5) / sigma));
+  return integral.y - integral.x;
+}
+
+// Math helpers
+fn gaussian(x: f32, sigma: f32) -> f32 {
+	let pi: f32 = 3.141592653589793;
+  return exp(-(x * x) / (2.0 * sigma * sigma)) / (sqrt(2.0 * pi) * sigma);
+}
+fn dot2(v: vec2<f32>) -> f32 {
+    return dot(v, v);
+}
+fn get_distance_vector(b0: vec2<f32>, b1: vec2<f32>, b2: vec2<f32>) -> vec2<f32> {
+    let a = det(b0, b2);
+    let b = 2.0 * det(b1, b0);
+    let d = 2.0 * det(b2, b1);
+
+    let f = b * d - a * a;
+    let d21 = b2 - b1; let d10 = b1 - b0; let d20 = b2 - b0;
+    var gf = 2.0 * (b * d21 + d * d10 + a * d20);
+    gf = vec2<f32>(gf.y, -gf.x);
+    let pp = -f * gf / dot(gf, gf);
+    let d0p = b0 - pp;
+    let ap = det(d0p, d20); let bp = 2.0 * det(d10, d0p);
+    // (note that 2*ap+bp+dp=2*a+b+d=4*area(b0,b1,b2))
+    let t = clamp((ap + bp) / (2.0 * a + b + d), 0.0, 1.0);
+    return mix(mix(b0, b1, t), mix(b1, b2, t), t);
+}
+fn det(a: vec2<f32>, b: vec2<f32>) -> f32 { return a.x * b.y - b.x * a.y; }
+fn erf(x: vec2<f32>) -> vec2<f32> {
+    let s = sign(x);
+    let a = abs(x);
+    var y = 1.0 + (0.278393 + (0.230389 + 0.078108 * (a * a)) * a) * a;
+    y *= y;
+    return s - s / (y * y);
+}
+
+// Boolean shape tests
+fn lineTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> bool {
+  let cs = i32(A.y < p.y) * 2 + i32(B.y < p.y);
+  if(cs == 0 || cs == 3) { return false; } // trivial reject
+  let v = B - A;
+  // Intersect line with x axis.
+  let t = (p.y - A.y) / v.y;
+  return (A.x + t * v.x) > p.x;
+}
 fn bezierTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> bool {
   // Compute barycentric coordinates of p.
   // p = s * A + t * B + (1-s-t) * C
@@ -290,16 +280,31 @@ fn bezierTest(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> bool {
   return u * u < v;
 }
 
+// Functions for msdf text rendering
 fn median(r: f32, g: f32, b: f32) -> f32 {
 	return max(min(r, g), min(max(r, g), b));
 }
+fn screen_px_range(texcoord: vec2<f32>) -> f32 {
+	let screen_tex_size = vec2<f32>(1.0) / fwidth(texcoord);
+	return max(0.5 * dot(vec2<f32>(uniforms.text_unit_range), screen_tex_size), 2.0);
+}
+fn contour(dist: f32, texcoord: vec2<f32>) -> f32 {
+	let width = screen_px_range(texcoord);
+	let e = width * (dist - 0.5 + uniforms.text_in_bias) + 0.5 + uniforms.text_out_bias;
+	return smoothstep(0.0, 1.0, e);
+}
+fn sample_msdf(uv: vec2<f32>) -> f32 {
+	let msd = textureSample(atlas_tex, atlas_samp, uv).rgb;
+	let sd = median(msd.r, msd.g, msd.b);
+	return contour(sd, uv);
+}
 
+// Returns the signed sistance to a given shape
 fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 	var d = 1e10;
 	switch (shape.kind) {
-		case 0u: {
-
-		}
+		// No shape
+		case 0u: {}
 		// Circle
 		case 1u: {
 			d = sd_circle(p - shape.cv0, shape.radius[0]);
@@ -377,7 +382,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
       d = d * s;
     }
     // Arbitrary Polygon
-    case 8u {
+    case 8u: {
    		var d = dot(p - cvs.cvs[0], p - cvs.cvs[0]);
      	var s = 1.0;
       for(var i: u32 = 0; i < shape.count; i += 1u) {
@@ -397,9 +402,17 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     }
     // Glyph
     case 9u: {
-   		let msd = textureSample(atlas_tex, atlas_samp, shape.cv0).rgb;
-      let sd = median(msd.r, msd.g, msd.b);
-      d = smoothstep(0.5, -0.5, shape.radius[0] * (sd - 0.5));
+    	// Supersampling parameters
+    	let dscale = 0.354;
+     	let uv = shape.cv0;
+      let duv = dscale * (dpdx(uv) + dpdy(uv));
+      let box = vec4<f32>(uv - duv, uv + duv);
+      // Supersample the sdf texture
+      let asum = sample_msdf(box.xy) + sample_msdf(box.zw) + sample_msdf(box.xw) + sample_msdf(box.zy);
+      // Determine opacity
+      var opacity = (sample_msdf(uv) + 0.5 * asum) / 3.0;
+      // Reflect opacity with distance result
+      d = 1.0 - opacity;
     }
     // Line segment
     case 10u: {
@@ -423,12 +436,13 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 fn not(v: vec3<bool>) -> vec3<bool> {
 	return vec3<bool>(!v.x, !v.y, !v.z);
 }
-
 fn hash(p: vec2<f32>) -> vec2<f32> {
 	var pp = vec2<f32>( dot(p,vec2<f32>(127.1,311.7)), dot(p,vec2<f32>(269.5,183.3)) );
 	return -1.0 + 2.0*fract(sin(pp)*43758.5453123);
 }
-
+fn random(coords: vec2<f32>) -> f32 {
+	return fract(sin(dot(coords.xy, vec2<f32>(12.9898, 78.233))) * 43758.5453);
+}
 fn noise(p: vec2<f32>) -> f32 {
   let K1: f32 = 0.366025404; // (sqrt(3)-1)/2;
   let K2: f32 = 0.211324865; // (3-sqrt(3))/6;
@@ -477,10 +491,6 @@ fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance
   return out;
 }
 
-fn random(coords: vec2<f32>) -> f32 {
-	return fract(sin(dot(coords.xy, vec2<f32>(12.9898, 78.233))) * 43758.5453);
-}
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	var out: vec4<f32>;
@@ -526,6 +536,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			}
 		}
 	}
+
+	let opacity = clamp(1.0 - d, 0.0, 1.0);
 
 	// Get pixel color
 	switch (paint.kind) {
@@ -590,7 +602,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		default: {}
 	}
 
-	out.a *= clamp(1.0 - d, 0.0, 1.0);
+	out = vec4<f32>(pow(out.rgb, vec3<f32>(uniforms.gamma)), out.a * opacity);
 
   return out;
 }

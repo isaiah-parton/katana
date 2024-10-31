@@ -72,6 +72,10 @@ wgpu_buffer_destroy :: proc(self: ^WGPU_Buffer($T)) {
 Shader_Uniforms :: struct #align (8) {
 	size: [2]f32,
 	time: f32,
+	gamma: f32,
+	text_unit_range: f32,
+	text_in_bias: f32,
+	text_out_bias: f32,
 }
 
 Renderer :: struct {
@@ -99,7 +103,6 @@ init_renderer_with_device_and_surface :: proc(
 	renderer: ^Renderer,
 	device: wgpu.Device,
 	surface: wgpu.Surface,
-	surface_format: wgpu.TextureFormat,
 ) {
 	assert(renderer != nil)
 	// Save device for later
@@ -237,7 +240,7 @@ init_renderer_with_device_and_surface :: proc(
 				entryPoint = "fs_main",
 				targetCount = 1,
 				targets = &wgpu.ColorTargetState {
-					format = surface_format,
+					format = renderer.surface_config.format,
 					writeMask = {.Red, .Green, .Blue, .Alpha},
 					blend = &{
 						color = {
@@ -295,6 +298,15 @@ present :: proc() {
 	uniform := Shader_Uniforms {
 		size = {surface_width, surface_height},
 		time = f32(time.duration_seconds(time.since(core.start_time))),
+		gamma = 1.0,
+		text_unit_range = 2.0 / core.atlas_size,
+		text_out_bias = 0.2,
+		text_in_bias = 0.0,
+	}
+
+	#partial switch renderer.surface_config.format {
+	case .BGRA8UnormSrgb, .RGBA8UnormSrgb:
+		uniform.gamma = 2.2
 	}
 
 	surface_view := wgpu.TextureCreateView(surface_texture.texture, nil)
@@ -382,7 +394,7 @@ present :: proc() {
 			renderer.device,
 			&{
 				magFilter = .Linear,
-				minFilter = .Linear,
+				minFilter = .Nearest,
 				addressModeU = .ClampToEdge,
 				addressModeV = .ClampToEdge,
 				maxAnisotropy = 1,

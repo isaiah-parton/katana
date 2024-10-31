@@ -18,6 +18,8 @@ Font_Glyph :: struct {
 	source:  Box,
 	bounds:  Box,
 	advance: f32,
+	sdf_size: f32,
+	sdf_distance_range: f32,
 }
 
 Font :: struct {
@@ -107,6 +109,8 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 
 		glyph := Font_Glyph {
 			advance = f32(glyph_obj["advance"].(json.Float) or_return),
+			sdf_size = font.size,
+			sdf_distance_range = font.distance_range,
 		}
 
 		// left, bottom, right, top
