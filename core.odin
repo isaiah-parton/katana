@@ -68,7 +68,7 @@ surface_configuration :: proc(device: wgpu.Device, adapter: wgpu.Adapter, surfac
 		presentMode = caps.presentModes[0],
 		alphaMode   = caps.alphaModes[0],
 		device      = device,
-		format      = .BGRA8Unorm,
+		format      = .RGBA8Unorm,
 		usage       = {.RenderAttachment},
 	}
 }

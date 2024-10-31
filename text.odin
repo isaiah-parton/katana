@@ -366,7 +366,7 @@ fill_text_layout :: proc(layout: Text_Layout, origin: [2]f32, paint: Paint_Optio
 	// Determine optimal pixel range for antialiasing
 	pixel_range := max(
 		layout.font.distance_range,
-		(layout.font_scale / layout.font.size) * layout.font.distance_range,
+		(layout.font_scale / layout.font.size) * layout.font.distance_range * 0.5,
 	)
 	paint_index := paint_index_from_option(paint)
 	// Draw the glyphs
@@ -392,7 +392,7 @@ fill_text_layout_aligned :: proc(
 	// Determine optimal pixel range for antialiasing
 	pixel_range := max(
 		layout.font.distance_range,
-		(layout.font_scale / layout.font.size) * layout.font.distance_range,
+		(layout.font_scale / layout.font.size) * layout.font.distance_range * 0.5,
 	)
 	paint_index := paint_index_from_option(paint)
 
