@@ -156,6 +156,7 @@ push_scissor :: proc(shape: Shape) {
 		Scissor{box = get_shape_bounding_box(shape), shape = u32(len(core.renderer.shapes.data))},
 	)
 	append(&core.renderer.shapes.data, shape)
+	core.current_draw_call.shape_count += 1
 }
 
 // Pop the last scissor off the stack

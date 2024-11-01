@@ -25,6 +25,7 @@ Core :: struct {
 	current_matrix:       ^Matrix,
 	last_matrix:          Matrix,
 	matrix_index:         u32,
+	default_font: Font,
 	fallback_font:        Maybe(Font),
 	// Scissors are capped at 8 for the sake of sanity
 	scissor_stack:        Stack(Scissor, 8),
@@ -95,6 +96,9 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 			sampleCount = 1,
 		},
 	)
+
+	make_default_font()
+
 	core.start_time = time.now()
 	core.frame_time = core.start_time
 }
@@ -169,22 +173,27 @@ get_atlas_box :: proc(size: [2]f32) -> Box {
 	return box
 }
 
-blit_texture_to_atlas :: proc(texture: wgpu.Texture) -> Box {
-	texture_size := [2]f32{f32(wgpu.TextureGetWidth(texture)), f32(wgpu.TextureGetHeight(texture))}
-	box := get_atlas_box(texture_size)
-	enc := wgpu.DeviceCreateCommandEncoder(core.renderer.device)
-	wgpu.CommandEncoderCopyTextureToTexture(
-		enc,
-		&{texture = texture},
-		&{texture = core.atlas_texture, origin = {x = u32(box.lo.x), y = u32(box.lo.y)}},
+copy_image_to_atlas :: proc(data: rawptr, width, height: int) -> Box {
+	box := get_atlas_box([2]f32{f32(width), f32(height)})
+	wgpu.QueueWriteTexture(
+		core.renderer.queue,
+		&{
+			texture = core.atlas_texture,
+			origin = {x = u32(box.lo.x), y = u32(box.lo.y)},
+		},
+		data,
+		uint(width * height * 4),
+		&{
+			bytesPerRow = u32(box.hi.x - box.lo.x) * 4,
+			rowsPerImage = u32(box.hi.y - box.lo.y),
+		},
 		&{
 			width = u32(box.hi.x - box.lo.x),
 			height = u32(box.hi.y - box.lo.y),
 			depthOrArrayLayers = 1,
 		},
 	)
-	wgpu.QueueSubmit(core.renderer.queue, {wgpu.CommandEncoderFinish(enc)})
-	wgpu.CommandEncoderRelease(enc)
+	wgpu.QueueSubmit(core.renderer.queue, {})
 	return box
 }
 

@@ -299,6 +299,10 @@ fn sample_msdf(uv: vec2<f32>, bias: f32) -> f32 {
 	let dist = median(msd.r, msd.g, msd.b);
 	return contour(dist, bias, uv);
 }
+fn sample_sdf(uv: vec2<f32>, bias: f32) -> f32 {
+	let dist = textureSample(atlas_tex, atlas_samp, uv).a;
+	return contour(dist, bias, uv);
+}
 
 // Returns the signed sistance to a given shape
 fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
@@ -413,7 +417,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
       let asum = sample_msdf(box.xy, bias) + sample_msdf(box.zw, bias) + sample_msdf(box.xw, bias) + sample_msdf(box.zy, bias);
       // Determine opacity
       var opacity = (sample_msdf(uv, bias) + 0.5 * asum) / 3.0;
-      // Reflect opacity with distance result
+      // Reflect opacity with distance result=
       d = 1.0 - opacity;
     }
     // Line segment

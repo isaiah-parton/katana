@@ -129,7 +129,7 @@ make_text_layout :: proc(
 	line: Text_Line = {
 		offset = 0,
 	}
-	line_height := (font.ascend - font.descend) * iter.size
+	line_height := font.line_height * iter.size
 
 	layout.selection = -1
 	layout.hovered_glyph = -1
@@ -179,7 +179,7 @@ make_text_layout :: proc(
 		}
 
 		// Push a new line
-		if iter.char == '\n' || at_end {
+		if iter.new_line || at_end {
 			current_line := len(core.text_lines) - first_line
 
 			// Clamp hovered line index if this is the last one
@@ -426,14 +426,14 @@ fill_text_layout_aligned :: proc(
 
 glyph_bias_from_paint :: proc(paint: Paint_Option) -> f32 {
 	if color, ok := paint.(Color); ok {
-		return 0.5 - luminance_of(color) * 0.5
+		return 0.5 - luminance_of(color) * 0.75
 	}
 	return 0.0
 }
 
 fill_text :: proc(
 	text: string,
-	font: Font,
+	font: Font = DEFAULT_FONT,
 	size: f32,
 	origin: [2]f32,
 	options: Text_Options = {},

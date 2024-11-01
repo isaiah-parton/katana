@@ -179,12 +179,13 @@ add_shape :: proc(shape: Shape, no_bounds: bool = false) -> u32 {
 		append(&core.renderer.xforms.data, core.current_matrix^)
 		core.last_matrix = core.current_matrix^
 	}
-	// Asign the shape's transform
+	// Assign the shape's transform
 	shape.xform = core.matrix_index
 	// Append the shape
 	index := u32(len(core.renderer.shapes.data))
 	append(&core.renderer.shapes.data, shape)
 	core.current_draw_call.shape_count += 1
+
 	return index
 }
 

@@ -15,11 +15,9 @@ import ".."
 adapter: wgpu.Adapter
 device: wgpu.Device
 
-LOREM_IPSUM :: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus. Mauris tortor metus, fringilla id tempus efficitur, suscipit a diam. Quisque pretium nec tellus vel auctor. Quisque vel auctor arcu. Suspendisse malesuada sem eleifend, fermentum lectus non, lobortis arcu. Quisque a elementum nibh, ac ornare lectus. Suspendisse ac felis vestibulum, feugiat arcu vel, commodo ligula.
+LOREM_IPSUM :: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus.`
 
-Nam in nulla justo. Praesent eget neque pretium, consectetur purus sit amet, placerat nulla. Vestibulum lacinia enim vel egestas iaculis. Nulla congue quam nulla, sit amet placerat nunc vulputate nec. Vestibulum ante felis, pellentesque in nibh ac, tempor faucibus mi. Duis id arcu sit amet lorem tempus volutpat sit amet pretium justo. Integer tincidunt felis enim, sed ornare mi pellentesque a. Suspendisse potenti. Quisque blandit posuere ipsum, vitae vestibulum mauris placerat a. Nunc sed ante gravida, viverra est in, hendrerit est. Phasellus libero augue, posuere eu bibendum ut, semper non justo. Vestibulum maximus, nulla sed gravida porta, tellus erat dapibus augue, sed lacinia augue sapien eget velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
-
-Aliquam vel velit eu purus aliquet commodo id sit amet erat. Vivamus imperdiet magna in finibus ultrices. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod facilisis dui. Fusce quam mi, auctor condimentum est id, volutpat aliquet sapien. Nam mattis risus nunc, sed efficitur odio interdum non. Aenean ornare libero ex, sollicitudin accumsan dolor congue vitae. Maecenas nibh urna, vehicula in felis et, ornare porttitor nisi.`
+SAMPLE_TEXT :: "The quick brown fox jumps over the lazy dog."
 
 main :: proc() {
 
@@ -88,8 +86,8 @@ main :: proc() {
 
 	// Load some fonts
 	light_font, _ := vgo.load_font_from_image_and_json(
-		"fonts/KumbhSans-Light.png",
-		"fonts/KumbhSans-Light.json",
+		"fonts/KumbhSans-Regular.png",
+		"fonts/KumbhSans-Regular.json",
 	)
 	regular_font := light_font
 	icon_font, _ := vgo.load_font_from_image_and_json(
@@ -177,13 +175,6 @@ main :: proc() {
 
 		switch page {
 		case 0:
-			vgo.fill_glyph(
-				vgo.get_font_glyph(regular_font, 'd') or_else panic(""),
-				128,
-				100,
-				vgo.WHITE,
-			)
-
 			{
 				container := get_box(&layout)
 				center := (container.lo + container.hi) / 2
@@ -359,7 +350,7 @@ main :: proc() {
 			{
 				container := get_box(&layout)
 				center := (container.lo + container.hi) / 2
-				radius := f32(SIZE + 5)
+				radius := f32(SIZE + 5) + math.sin(animation_time * 2) * 20
 				size := radius * 2
 
 				vgo.push_matrix()
@@ -384,10 +375,9 @@ main :: proc() {
 		case 1:
 			box := layout.bounds
 
-			vgo.push_scissor(vgo.make_box(box, 0))
+			vgo.push_scissor(vgo.make_box(box))
 			defer vgo.pop_scissor()
 			vgo.push_scissor(vgo.make_circle(mouse_point, 250))
-			defer vgo.pop_scissor()
 
 			// vgo.fill_box(box, vgo.BLACK)
 			text_size := f32(24 + clamp(math.sin(animation_time), 0, 0.5) * 24)
@@ -404,6 +394,9 @@ main :: proc() {
 					GRADIENT_COLORS[1],
 				),
 			)
+			vgo.pop_scissor()
+
+			vgo.fill_circle(canvas_size / 2, 50, vgo.GOLD)
 		case 2:
 			{
 				text := "Rotating text!"
@@ -460,29 +453,32 @@ main :: proc() {
 			right_box.lo += 20
 			left_box.hi -= 20
 			right_box.hi -= 20
-			vgo.fill_text(
-				LOREM_IPSUM,
-				light_font,
-				16,
-				left_box.lo,
-				{max_width = left_box.hi.x - left_box.lo.x, wrap = .Word},
-				vgo.BLACK,
-			)
-			vgo.fill_text(
-				LOREM_IPSUM,
-				light_font,
-				16,
-				right_box.lo,
-				{max_width = right_box.hi.x - right_box.lo.x, wrap = .Word},
-				vgo.WHITE,
-			)
+			offset: f32 = 0
+			TEXT_SIZES :: [?]f32{16, 20, 26, 32}
+			for size, i in TEXT_SIZES {
+				vgo.fill_text(
+					LOREM_IPSUM,
+					light_font,
+					size,
+					left_box.lo + {0, offset},
+					{max_width = left_box.hi.x - left_box.lo.x, wrap = .Word},
+					vgo.BLACK,
+				)
+				offset += vgo.fill_text(
+					LOREM_IPSUM,
+					light_font,
+					size,
+					right_box.lo + {0, offset},
+					{max_width = right_box.hi.x - right_box.lo.x, wrap = .Word},
+					vgo.WHITE,
+				).y + 10
+			}
 		}
 
 		vgo.fill_text(
-			fmt.tprintf("FPS: %.0f", vgo.get_fps()),
-			light_font,
-			16,
-			{},
+			origin = {},
+			text = fmt.tprintf("FPS: %.0f", vgo.get_fps()),
+			size = 20,
 			paint = vgo.GREEN,
 		)
 
