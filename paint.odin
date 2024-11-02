@@ -61,8 +61,9 @@ Paint_Kind :: enum u32 {
 	Radial_Gradient,
 	// SDF Visualizer
 	Distance_Field,
-	// Glyph gamma correction
-	Glyph,
+	// Wheel gradient
+	Wheel_Gradient,
+	Triangle_Gradient,
 }
 
 Stroke_Justify :: enum {
@@ -74,13 +75,14 @@ Stroke_Justify :: enum {
 
 // The paint data sent to the GPU
 Paint :: struct #align (8) {
-	kind: Paint_Kind,
+	kind:  Paint_Kind,
 	noise: f32,
-	cv0:  [2]f32,
-	cv1:  [2]f32,
-	pad1: [2]u32,
-	col0: [4]f32,
-	col1: [4]f32,
+	cv0:   [2]f32,
+	cv1:   [2]f32,
+	cv2:   [2]f32,
+	col0:  [4]f32,
+	col1:  [4]f32,
+	col2:  [4]f32,
 }
 
 Paint_Index :: distinct u32
@@ -166,10 +168,20 @@ pop_scissor :: proc() {
 
 // Get the scissor at the top of the stack
 current_scissor :: proc() -> Maybe(Scissor) {
-	if core.scissor_stack.height > 0 {
+	if !core.disable_scissor && core.scissor_stack.height > 0 {
 		return core.scissor_stack.items[core.scissor_stack.height - 1]
 	}
 	return nil
+}
+
+@(deferred_none=enable_scissor)
+disable_scissor :: proc() -> bool {
+	core.disable_scissor = true
+	return core.disable_scissor
+}
+
+enable_scissor :: proc() {
+	core.disable_scissor = false
 }
 
 // Construct a linear gradient paint for the GPU
@@ -193,11 +205,31 @@ make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -
 	diff := linalg.abs(normalize_color(outer) - normalize_color(inner))
 	return Paint {
 		kind = .Radial_Gradient,
-		noise = ((1.0 - (diff.x + diff.y + diff.z) * 0.33) + diff.w) * 0.05,
+		noise = max(0.0, radius / (f32(diff.r + diff.g + diff.b + diff.a) * (255.0 / 0.25))) * (0.5 / 255.0),
 		cv0 = center,
 		cv1 = {radius, 0},
 		col0 = normalize_color(inner),
 		col1 = normalize_color(outer),
+	}
+}
+
+// Construct a radial gradient paint for the GPU
+make_wheel_gradient :: proc(center: [2]f32) -> Paint {
+	return Paint {
+		kind = .Wheel_Gradient,
+		cv0 = center,
+	}
+}
+
+make_tri_gradient :: proc(points: [3][2]f32, colors: [3]Color) -> Paint {
+	return Paint {
+		kind = .Triangle_Gradient,
+		cv0 = points[0],
+		cv1 = points[1],
+		cv2 = points[2],
+		col0 = normalize_color(colors[0]),
+		col1 = normalize_color(colors[1]),
+		col2 = normalize_color(colors[2]),
 	}
 }
 
@@ -282,6 +314,9 @@ set_texture :: proc(texture: wgpu.Texture) {
 
 @(private)
 append_draw_call :: proc() {
+	if core.current_draw_call != nil {
+		core.current_draw_call.shape_count = len(core.renderer.shapes.data) - core.current_draw_call.first_shape
+	}
 	append(
 		&core.draw_calls,
 		Draw_Call {

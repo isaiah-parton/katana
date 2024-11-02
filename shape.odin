@@ -184,7 +184,6 @@ add_shape :: proc(shape: Shape, no_bounds: bool = false) -> u32 {
 	// Append the shape
 	index := u32(len(core.renderer.shapes.data))
 	append(&core.renderer.shapes.data, shape)
-	core.current_draw_call.shape_count += 1
 
 	return index
 }
@@ -224,8 +223,8 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo = linalg.min(shape.cv0, shape.cv1, shape.cv2) - shape.width * 2
 		box.hi = linalg.max(shape.cv0, shape.cv1, shape.cv2) + shape.width * 2
 	case .Blurred_Box:
-		box.lo = shape.cv0 - shape.cv1 * 3
-		box.hi = shape.cv0 + shape.cv1 * 3
+		box.lo = shape.cv0 - shape.cv2.x * 3
+		box.hi = shape.cv1 + shape.cv2.x * 3
 	case .Arc:
 		box.lo = shape.cv0 - shape.radius[0] - shape.radius[1]
 		box.hi = shape.cv0 + shape.radius[0] + shape.radius[1]
@@ -511,7 +510,7 @@ fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option) {
 	)
 }
 
-stroke_circle :: proc(center: [2]f32, radius, width: f32, color: Color) {
+stroke_circle :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option) {
 	add_shape(
 		Shape {
 			kind = .Circle,
@@ -519,7 +518,7 @@ stroke_circle :: proc(center: [2]f32, radius, width: f32, color: Color) {
 			radius = radius,
 			width = width,
 			outline = .Stroke,
-			paint = paint_index_from_option(color),
+			paint = paint_index_from_option(paint),
 		},
 	)
 }

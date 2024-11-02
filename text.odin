@@ -35,17 +35,19 @@ Text_Line :: struct {
 	index_range: [2]int,
 	// Range of glyph
 	glyph_range: [2]int,
-	// Total size
-	size:        [2]f32,
 }
 
 Text_Layout :: struct {
 	font:            Font,
 	font_scale:      f32,
+	// Layout objects
 	glyphs:          []Text_Glyph,
 	lines:           []Text_Line,
+	// Layout size excluding descent
 	size:            [2]f32,
-	selection:       [2]int,
+	// Actual space occupied by displayed glyphs
+	display_size:    [2]f32,
+	// Selection range
 	glyph_selection: [2]int,
 	// Interaction results
 	mouse_index:     int,
@@ -54,19 +56,28 @@ Text_Layout :: struct {
 }
 
 Text_Iterator :: struct {
+	// Text parameters
 	text:       string,
 	options:    Text_Options,
 	font:       Font,
 	size:       f32,
+	// Current glyph
 	glyph:      Font_Glyph,
+	// Line width to wrap at
 	max_width:  f32,
+	// Current line width
 	line_width: f32,
 	// Set to true if `char` is the first of a new line
 	new_line:   bool,
+	// Current glyph offset
 	offset:     [2]f32,
+	// Previous rune
 	last_char:  rune,
+	// Current rune
 	char:       rune,
+	// Starting index of the next word
 	next_word:  int,
+	// Codepoint indices
 	index:      int,
 	next_index: int,
 }
@@ -129,9 +140,8 @@ make_text_layout :: proc(
 	line: Text_Line = {
 		offset = 0,
 	}
-	line_height := font.line_height * iter.size
+	line_height := (font.ascend - font.descend) * iter.size
 
-	layout.selection = -1
 	layout.hovered_glyph = -1
 	layout.font_scale = size
 	layout.font = font
@@ -151,13 +161,11 @@ make_text_layout :: proc(
 		// Figure out highlighting and cursor pos
 		if selection, ok := selection.?; ok {
 			if selection[0] == iter.index {
-				layout.selection[0] = (len(core.text_glyphs) - first_glyph) - 1
 				layout.glyph_selection[0] = len(core.text_glyphs) - first_glyph
 			}
 			if selection[1] == iter.index {
 				layout.glyph_selection[1] = len(core.text_glyphs) - first_glyph
 			}
-			// lo, hi := min(selection[0], selection[1]), max(selection[0], selection[1])
 		}
 
 		// Add a glyph
@@ -209,7 +217,11 @@ make_text_layout :: proc(
 
 			// Update text size
 			layout.size.x = max(layout.size.x, iter.line_width)
-			layout.size.y += line_height
+
+			layout.size.y += font.ascend * iter.size
+			if iter.new_line {
+				layout.size.y -= font.descend * iter.size
+			}
 		}
 
 		if at_end {
@@ -229,6 +241,10 @@ make_text_layout :: proc(
 	}
 
 	return
+}
+
+set_fallback_font :: proc(font: Font) {
+	core.fallback_font = font
 }
 
 iterate_text_rune :: proc(it: ^Text_Iterator) -> bool {
@@ -252,13 +268,22 @@ iterate_text_rune :: proc(it: ^Text_Iterator) -> bool {
 		it.glyph, ok = get_font_glyph(it.font, r)
 		// Try fallback font
 		if !ok && r > unicode.MAX_LATIN1 && core.fallback_font != nil {
-			it.glyph, ok = get_font_glyph(core.fallback_font.?, it.char)
+			it.glyph, ok = get_font_glyph(core.fallback_font.?, r)
+			// If a different font was used previously, align the glyphs' baselines
+			if ok && it.last_char != 0 && core.fallback_font.?.type == .Emoji {
+				it.glyph.bounds.lo.y += it.glyph.descend
+				it.glyph.bounds.hi.y += it.glyph.descend
+			}
 		}
 	}
 	return true
 }
 
 iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
+
+	if iter.new_line {
+		iter.line_width = 0
+	}
 
 	advance := iter.glyph.advance * iter.size
 
@@ -317,7 +342,6 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 
 	// Update vertical offset if there's a new line or if reached end
 	if iter.new_line {
-		iter.line_width = 0
 		switch iter.options.justify {
 		case .Left:
 			iter.offset.x = 0
@@ -424,9 +448,15 @@ fill_text_layout_aligned :: proc(
 	}
 }
 
+// A sort of gamma correction for text drawn in SRGB color space
+// TODO: Maybe move this to the GPU?
 glyph_bias_from_paint :: proc(paint: Paint_Option) -> f32 {
+	if core.renderer.surface_config.format != .RGBA8UnormSrgb &&
+	   core.renderer.surface_config.format != .BGRA8UnormSrgb {
+		return 0.0
+	}
 	if color, ok := paint.(Color); ok {
-		return 0.5 - luminance_of(color) * 0.75
+		return 0.5 - luminance_of(color) * 0.5
 	}
 	return 0.0
 }
@@ -460,6 +490,7 @@ fill_text_aligned :: proc(
 }
 
 make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) -> Shape {
+	origin := origin + {0, glyph.descend * size}
 	return Shape {
 		kind = .Glyph,
 		tex_min = glyph.source.lo / core.atlas_size,

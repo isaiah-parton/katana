@@ -29,6 +29,7 @@ Core :: struct {
 	fallback_font:        Maybe(Font),
 	// Scissors are capped at 8 for the sake of sanity
 	scissor_stack:        Stack(Scissor, 8),
+	disable_scissor: bool,
 	// Draw calls for ordered drawing
 	draw_calls:           [dynamic]Draw_Call,
 	draw_call_index:      int,
@@ -105,6 +106,7 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 
 // Call when you're done using vgo
 shutdown :: proc() {
+	destroy_font(&core.default_font)
 	delete(core.draw_calls)
 	delete(core.text_lines)
 	delete(core.text_glyphs)
@@ -138,6 +140,7 @@ new_frame :: proc() {
 
 	clear(&core.draw_calls)
 	core.current_draw_call = nil
+	core.draw_call_index = 0
 
 	append(&core.renderer.paints.data, Paint{kind = .None})
 	append(&core.renderer.shapes.data, Shape{kind = .None})

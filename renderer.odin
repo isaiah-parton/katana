@@ -270,6 +270,10 @@ destroy_renderer :: proc(renderer: ^Renderer) {
 present :: proc() {
 	renderer := &core.renderer
 
+	if core.current_draw_call != nil {
+		core.current_draw_call.shape_count = len(core.renderer.shapes.data) - core.current_draw_call.first_shape
+	}
+
 	// Sort draw calls by index
 	slice.sort_by(core.draw_calls[:], proc(i, j: Draw_Call) -> bool {
 		return i.index < j.index

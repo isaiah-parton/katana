@@ -13,26 +13,33 @@ import "core:strconv"
 import stbi "vendor:stb/image"
 import "vendor:wgpu"
 
+Font_Type :: enum {
+	Normal,
+	// Glyphs all have the same advance and kerning is disabled
+	Monospace,
+	// Glyphs are lifted to sit on baseline
+	Emoji,
+}
+
 Font_Glyph :: struct {
 	// UV location in source texture
 	source:  Box,
 	bounds:  Box,
 	advance: f32,
-	sdf_size: f32,
-	sdf_distance_range: f32,
+	descend: f32,
 }
 
 Font :: struct {
+	type: Font_Type,
 	first_rune:            rune,
-	em_size:               f32,
+	// em_size:               f32,
 	size:                  f32,
 	ascend:                f32,
 	descend:               f32,
-	underline_y:           f32,
-	underline_width:       f32,
+	// underline_y:           f32,
+	// underline_width:       f32,
 	line_height:           f32,
 	distance_range:        f32,
-	distance_range_middle: f32,
 	glyphs:                []Font_Glyph,
 }
 
@@ -41,7 +48,7 @@ destroy_font :: proc(font: ^Font) {
 	font^ = {}
 }
 
-load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: Font, ok: bool) {
+load_font_from_image_and_json :: proc(image_file, json_file: string, type: Font_Type = .Normal) -> (font: Font, ok: bool) {
 
 	image_data := os.read_entire_file(image_file) or_return
 	defer delete(image_data)
@@ -71,15 +78,16 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 
 	atlas_obj := obj["atlas"].(json.Object) or_return
 	font.distance_range = f32(atlas_obj["distanceRange"].(json.Float) or_return)
-	font.distance_range_middle = f32(atlas_obj["distanceRangeMiddle"].(json.Float) or_return)
 	font.size = f32(atlas_obj["size"].(json.Float) or_return)
+	font.type = type
+
 	metrics_obj := obj["metrics"].(json.Object) or_return
-	font.em_size = f32(metrics_obj["emSize"].(json.Float) or_return)
+	// font.em_size = f32(metrics_obj["emSize"].(json.Float) or_return)
 	font.line_height = f32(metrics_obj["lineHeight"].(json.Float) or_return)
 	font.ascend = f32(metrics_obj["ascender"].(json.Float) or_return)
 	font.descend = f32(metrics_obj["descender"].(json.Float) or_return)
-	font.underline_y = f32(metrics_obj["underlineY"].(json.Float) or_return)
-	font.underline_width = f32(metrics_obj["underlineThickness"].(json.Float) or_return)
+	// font.underline_y = f32(metrics_obj["underlineY"].(json.Float) or_return)
+	// font.underline_width = f32(metrics_obj["underlineThickness"].(json.Float) or_return)
 
 	glyphs: [dynamic]Font_Glyph
 
@@ -90,8 +98,7 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 
 		glyph := Font_Glyph {
 			advance = f32(glyph_obj["advance"].(json.Float) or_return),
-			sdf_size = font.size,
-			sdf_distance_range = font.distance_range,
+			descend = font.descend,
 		}
 
 		// left, bottom, right, top
@@ -142,7 +149,16 @@ get_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) 
 DEFAULT_FONT: Font
 
 make_default_font :: proc() {
-	font: Font
+	font: Font = {
+		// em_size = 1,
+		ascend = 0.927734375,
+		descend = -0.244140625,
+		// underline_y = -0.09765625,
+		// underline_width = 0.048828125,
+		line_height = 1.171875,
+		size = 32.53125,
+		distance_range = 2,
+	}
 
 	width, height: libc.int
 	bitmap_data := stbi.load_from_memory(
@@ -170,6 +186,7 @@ make_default_font :: proc() {
 				{atlas_source.lo.x + info.atlas_left, atlas_source.hi.y - info.atlas_top},
 				{atlas_source.lo.x + info.atlas_right, atlas_source.hi.y - info.atlas_bottom},
 			},
+			descend = font.descend,
 		}
 		if i == 0 {
 			font.first_rune = info.code
@@ -179,14 +196,6 @@ make_default_font :: proc() {
 		glyphs[index] = glyph
 	}
 
-	font.em_size = 1
-	font.ascend = 0.927734375
-	font.descend = -0.244140625
-	font.underline_y = -0.09765625
-	font.underline_width = 0.048828125
-	font.line_height = 1.171875
-	font.size = 32.53125
-	font.distance_range = 2
 	font.glyphs = glyphs[:]
 
 	DEFAULT_FONT = font

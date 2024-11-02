@@ -44,8 +44,10 @@ struct Paint {
 	noise: f32,
 	cv0: vec2<f32>,
 	cv1: vec2<f32>,
+	cv2: vec2<f32>,
 	col0: vec4<f32>,
 	col1: vec4<f32>,
+	col2: vec4<f32>,
 };
 
 struct Paints {
@@ -463,6 +465,47 @@ fn noise(p: vec2<f32>) -> f32 {
 	let n: vec3<f32> = h * h * h * h * vec3(dot(a, hash(i + 0.0)), dot(b, hash(i+o)), dot(c, hash(i + 1.0)));
   return dot(n, vec3<f32>(70.0));
 }
+fn hue_to_rgb(p: f32, q: f32, tt: f32) -> f32 {
+	var t = tt;
+	if (t < 0.0) {
+		t += 1.0;
+	}
+	if (t > 1.0) {
+		t -= 1.0;
+	}
+	if (t < 1.0 / 6.0) {
+		return p + (q - p) * 6.0 * t;
+	}
+	if (t < 1.0 / 2.0) {
+		return q;
+	}
+	if (t < 2.0 / 3.0) {
+		return p + (q - p) * 6.0 * (2.0 / 3.0 - t);
+	}
+	return p;
+}
+fn hsl_to_rgb(h: f32, s: f32, l: f32) -> vec3<f32> {
+	var r = 0.0;
+	var g = 0.0;
+	var b = 0.0;
+	if (s == 0.0) {
+		r = l;
+		g = l;
+		b = l;
+	} else {
+		var q = 0.0;
+		if (l < 0.5) {
+			q = l * (1.0 + s);
+		} else {
+			q = l + s - l * s;
+		}
+		let p = 2.0 * l - q;
+		r = hue_to_rgb(p, q, h + 1.0 / 3.0);
+		g = hue_to_rgb(p, q, h);
+		b = hue_to_rgb(p, q, h - 1.0 / 3.0);
+	}
+	return vec3<f32>(r, g, b);
+}
 
 @vertex
 fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> VertexOutput {
@@ -546,61 +589,79 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	let opacity = clamp(1.0 - d, 0.0, 1.0);
 
 	// Get pixel color
-	switch (paint.kind) {
-		// Solid color
-		case 1u: {
-			out = paint.col0;
-		}
-		// Atlas sampler
-		case 2u: {
-			out = textureSample(atlas_tex, atlas_samp, in.uv) * paint.col0;
-		}
-		// User texture sampler
-		case 3u: {
-			out = textureSampleBias(user_tex, user_samp, in.uv, -0.5) * paint.col0;
-		}
-		// Simplex noise gradient
-		case 4u: {
-			var uv = in.p;
-			var f = 0.5 * noise(uv * 0.0025 + uniforms.time * 0.2);
-			uv = mat2x2<f32>(1.6, 1.2, -1.2, 1.6) * uv;
-			f += noise(uv * 0.005 - uniforms.time * 0.2);
-			out = mix(paint.col0, paint.col1, clamp(f, 0.0, 1.0));
-		}
-		// Linear Gradient
-		case 5u: {
-			let dir = paint.cv1 - paint.cv0;
-			var det = 1.0 / ((dir.x * dir.x) - (-dir.y * dir.y));
-			let xform = mat2x2<f32>(
-				det * dir.x, det * -dir.y,
-				det * dir.y, det * dir.x,
-			);
-	    var t = clamp((xform * (in.p - paint.cv0)).x, 0.0, 1.0);
-			// Mix color output
-	    out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
-		}
-		// Radial gradient
-		case 6u: {
-			let r = paint.cv1.x;
-			var t = clamp(length(in.p - paint.cv0) / r, 0.0, 1.0);
-	  	out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
-		}
-		// Distance field
-		case 7u: {
-			if (d > 0) {
-				out = vec4<f32>(d / 10, 0.0, 0.0, 1.0);
-			} else {
-				out = vec4<f32>(0.0, 0.0, -d / 10, 1.0);
+	if (opacity > 0.0) {
+		switch (paint.kind) {
+			// Solid color
+			case 1u: {
+				out = paint.col0;
 			}
-			// out *= 1.0 - exp(-6.0*abs(d));
-			out = vec4<f32>(out.xyz * 0.8 + 0.2 * cos(0.5 * (d + uniforms.time * 5)), 1.0);
-			out = mix(out, vec4<f32>(1.0), 1.0 - smoothstep(0.0, 0.25, -(d / 5.0)));
+			// Atlas sampler
+			case 2u: {
+				out = textureSample(atlas_tex, atlas_samp, in.uv) * paint.col0;
+			}
+			// User texture sampler
+			case 3u: {
+				out = textureSampleBias(user_tex, user_samp, in.uv, -0.5) * paint.col0;
+			}
+			// Simplex noise gradient
+			case 4u: {
+				var uv = in.p;
+				var f = 0.5 * noise(uv * 0.0025 + uniforms.time * 0.2);
+				uv = mat2x2<f32>(1.6, 1.2, -1.2, 1.6) * uv;
+				f += noise(uv * 0.005 - uniforms.time * 0.2);
+				out = mix(paint.col0, paint.col1, clamp(f, 0.0, 1.0));
+			}
+			// Linear Gradient
+			case 5u: {
+				let dir = paint.cv1 - paint.cv0;
+				var det = 1.0 / ((dir.x * dir.x) - (-dir.y * dir.y));
+				let xform = mat2x2<f32>(
+					det * dir.x, det * -dir.y,
+					det * dir.y, det * dir.x,
+				);
+		    var t = clamp((xform * (in.p - paint.cv0)).x, 0.0, 1.0);
+				// Mix color output
+		    out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
+			}
+			// Radial gradient
+			case 6u: {
+				let r = paint.cv1.x;
+				var t = clamp(length(in.p - paint.cv0) / r, 0.0, 1.0);
+		  	out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
+			}
+			// Distance field
+			case 7u: {
+				if (d > 0) {
+					out = vec4<f32>(d / 10, 0.0, 0.0, 1.0);
+				} else {
+					out = vec4<f32>(0.0, 0.0, -d / 10, 1.0);
+				}
+				out = vec4<f32>(out.xyz * 0.8 + 0.2 * cos(0.5 * (d + uniforms.time * 5)), 1.0);
+				out = mix(out, vec4<f32>(1.0), 1.0 - smoothstep(0.0, 0.25, -(d / 5.0)));
+			}
+			// Wheel gradient
+			case 8u: {
+				let diff = in.p - paint.cv0;
+				let hue = atan2(diff.y, diff.x) * 0.159154;
+				out = vec4<f32>(hsl_to_rgb(hue, 1.0, 0.5), 1.0);
+			}
+			// Tri-gradient
+			case 9u: {
+				let v0 = paint.cv1 - paint.cv0;
+				let v1 = paint.cv2 - paint.cv0;
+				let v2 = in.p - paint.cv0;
+				let denom = v0.x * v1.y - v1.x * v0.y;
+				let v = (v2.x * v1.y - v1.x * v2.y) / denom;
+				let w = (v0.x * v2.y - v2.x * v0.y) / denom;
+				let u = 1 - v - w;
+				out = paint.col0 * u + paint.col1 * v + paint.col2 * w;
+			}
+			// Default case
+			default: {}
 		}
-		// Default case
-		default: {}
 	}
 
-	out = vec4<f32>(pow(out.rgb, vec3<f32>(uniforms.gamma)), out.a * opacity);
+	out = vec4<f32>(pow(out.rgb, vec3<f32>(uniforms.gamma)), pow(out.a * opacity, 2.2));
 
-  return out;
+	return out;
 }

@@ -104,12 +104,21 @@ main :: proc() {
 	PAGE_COUNT :: 4
 	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
+	frame_time: f32
+	last_frame_time: time.Time
+
+	Verlet_Body :: struct {
+		pos, prev_pos, acc: [2]f32,
+	}
 
 	// Frame loop
 	loop: for {
 		if limit_fps {
 			time.sleep(time.Millisecond * 10)
 		}
+
+		frame_time = f32(time.duration_seconds(time.since(last_frame_time)))
+		last_frame_time = time.now()
 
 		if animate {
 			animation_time += vgo.frame_time()
@@ -363,7 +372,7 @@ main :: proc() {
 				vgo.fill_glyph(
 					icon_font.glyphs[int(animation_time + 0.1) % len(icon_font.glyphs)],
 					size,
-					{-radius, -radius + icon_font.descend * size},
+					-radius,
 					vgo.make_linear_gradient(
 						-radius,
 						radius,
@@ -375,28 +384,17 @@ main :: proc() {
 		case 1:
 			box := layout.bounds
 
-			vgo.push_scissor(vgo.make_box(box))
-			defer vgo.pop_scissor()
-			vgo.push_scissor(vgo.make_circle(mouse_point, 250))
+			center0 := canvas_size / 2 + [2]f32{-0.87, 0.5} * 100
+			center1 := canvas_size / 2 + [2]f32{0, -0.5} * 100
+			center2 := canvas_size / 2 + [2]f32{0.87, 0.5} * 100
 
-			// vgo.fill_box(box, vgo.BLACK)
-			text_size := f32(24 + clamp(math.sin(animation_time), 0, 0.5) * 24)
-			vgo.fill_text(
-				LOREM_IPSUM,
-				light_font,
-				text_size,
-				box.lo,
-				options = {wrap = .Word, max_width = box.hi.x - box.lo.x},
-				paint = vgo.make_linear_gradient(
-					box.lo,
-					box.hi,
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
-			)
-			vgo.pop_scissor()
+			radius0 := f32(250) + math.cos(animation_time) * 50
+			radius1 := f32(250) + math.cos(animation_time + 1) * 50
+			radius2 := f32(250) + math.cos(animation_time + 2) * 50
 
-			vgo.fill_circle(canvas_size / 2, 50, vgo.GOLD)
+			vgo.fill_box(box, paint = vgo.make_radial_gradient(center0, radius0, vgo.Color{255, 0, 0, u8(math.round(f32(255.0 / 1.5)))}, vgo.Color{255, 0, 0, 0}))
+			vgo.fill_box(box, paint = vgo.make_radial_gradient(center1, radius1, vgo.Color{0, 0, 255, u8(math.round(f32(255.0 / 1.5)))}, vgo.Color{0, 0, 255, 0}))
+			vgo.fill_box(box, paint = vgo.make_radial_gradient(center2, radius2, vgo.Color{0, 255, 0, u8(math.round(f32(255.0 / 1.5)))}, vgo.Color{0, 255, 0, 0}))
 		case 2:
 			{
 				text := "Rotating text!"
