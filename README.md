@@ -31,4 +31,4 @@ i'm gonna make docs for it soon
   - [x] Radial dithered gradient
   - [x] A wierd simplex noise gradient that I like
   - [ ] User textures
-  - [ ] Poly-color gradients
+  - [ ] Mesh gradients
