@@ -325,7 +325,7 @@ present :: proc() {
 				view = surface_view,
 				loadOp = .Clear,
 				storeOp = .Store,
-				clearValue = {0, 0, 0, 1},
+				clearValue = {0, 0, 0, 0},
 			},
 		},
 	)

@@ -158,7 +158,6 @@ push_scissor :: proc(shape: Shape) {
 		Scissor{box = get_shape_bounding_box(shape), shape = u32(len(core.renderer.shapes.data))},
 	)
 	append(&core.renderer.shapes.data, shape)
-	core.current_draw_call.shape_count += 1
 }
 
 // Pop the last scissor off the stack
@@ -205,7 +204,7 @@ make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -
 	diff := linalg.abs(normalize_color(outer) - normalize_color(inner))
 	return Paint {
 		kind = .Radial_Gradient,
-		noise = max(0.0, radius / (f32(diff.r + diff.g + diff.b + diff.a) * (255.0 / 0.25))) * (0.5 / 255.0),
+		noise = max(0.0, (1.0 - (diff.r + diff.g + diff.b + diff.a) * 0.25) * 0.001),
 		cv0 = center,
 		cv1 = {radius, 0},
 		col0 = normalize_color(inner),

@@ -13,14 +13,6 @@ import "core:strconv"
 import stbi "vendor:stb/image"
 import "vendor:wgpu"
 
-Font_Type :: enum {
-	Normal,
-	// Glyphs all have the same advance and kerning is disabled
-	Monospace,
-	// Glyphs are lifted to sit on baseline
-	Emoji,
-}
-
 Font_Glyph :: struct {
 	// UV location in source texture
 	source:  Box,
@@ -30,7 +22,6 @@ Font_Glyph :: struct {
 }
 
 Font :: struct {
-	type: Font_Type,
 	first_rune:            rune,
 	// em_size:               f32,
 	size:                  f32,
@@ -48,7 +39,7 @@ destroy_font :: proc(font: ^Font) {
 	font^ = {}
 }
 
-load_font_from_image_and_json :: proc(image_file, json_file: string, type: Font_Type = .Normal) -> (font: Font, ok: bool) {
+load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: Font, ok: bool) {
 
 	image_data := os.read_entire_file(image_file) or_return
 	defer delete(image_data)
@@ -79,7 +70,6 @@ load_font_from_image_and_json :: proc(image_file, json_file: string, type: Font_
 	atlas_obj := obj["atlas"].(json.Object) or_return
 	font.distance_range = f32(atlas_obj["distanceRange"].(json.Float) or_return)
 	font.size = f32(atlas_obj["size"].(json.Float) or_return)
-	font.type = type
 
 	metrics_obj := obj["metrics"].(json.Object) or_return
 	// font.em_size = f32(metrics_obj["emSize"].(json.Float) or_return)
@@ -98,7 +88,6 @@ load_font_from_image_and_json :: proc(image_file, json_file: string, type: Font_
 
 		glyph := Font_Glyph {
 			advance = f32(glyph_obj["advance"].(json.Float) or_return),
-			descend = font.descend,
 		}
 
 		// left, bottom, right, top
@@ -186,7 +175,6 @@ make_default_font :: proc() {
 				{atlas_source.lo.x + info.atlas_left, atlas_source.hi.y - info.atlas_top},
 				{atlas_source.lo.x + info.atlas_right, atlas_source.hi.y - info.atlas_bottom},
 			},
-			descend = font.descend,
 		}
 		if i == 0 {
 			font.first_rune = info.code

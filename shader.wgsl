@@ -546,6 +546,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	var d = 0.0;
 
 	var shape = shapes.shapes[in.shape];
+
+	if (shape.paint == 0u) {
+		return out;
+	}
+
 	let paint = paints.paints[shape.paint];
 
 	if (shape.kind > 0u) {
@@ -579,9 +584,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 					let d1 = sd_shape(shape, in.p);
 					d = max(min(d, d1), -max(d, d1));
 				}
-				default: {
-					d = sd_shape(shape, in.p);
-				}
+				default: {}
 			}
 		}
 	}
@@ -621,13 +624,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 				);
 		    var t = clamp((xform * (in.p - paint.cv0)).x, 0.0, 1.0);
 				// Mix color output
-		    out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
+		    out = mix(paint.col0, paint.col1, t + mix(-paint.noise, paint.noise, random(in.p)));
 			}
 			// Radial gradient
 			case 6u: {
 				let r = paint.cv1.x;
 				var t = clamp(length(in.p - paint.cv0) / r, 0.0, 1.0);
-		  	out = mix(paint.col0, paint.col1, smoothstep(0.0, 1.0, t + mix(-paint.noise, paint.noise, random(in.p))));
+		  	out = mix(paint.col0, paint.col1, t + mix(-paint.noise, paint.noise, random(in.p)));
 			}
 			// Distance field
 			case 7u: {
@@ -661,7 +664,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		}
 	}
 
-	out = vec4<f32>(pow(out.rgb, vec3<f32>(uniforms.gamma)), pow(out.a * opacity, 2.2));
+	out = vec4<f32>(pow(out.rgb, vec3<f32>(uniforms.gamma)), out.a * opacity);
 
 	return out;
 }

@@ -24,7 +24,7 @@ main :: proc() {
 	sdl2.Init(sdl2.INIT_VIDEO)
 	defer sdl2.Quit()
 
-	window := sdl2.CreateWindow("vgo example", 100, 100, 640, 480, {.SHOWN, .RESIZABLE})
+	window := sdl2.CreateWindow("vgo example", 100, 100, 1200, 800, {.SHOWN, .RESIZABLE})
 	defer sdl2.DestroyWindow(window)
 
 	instance := wgpu.CreateInstance()
@@ -101,7 +101,7 @@ main :: proc() {
 	enable_glyph_gamma_correction: bool = true
 	animation_time: f32 = 0.1
 	page: int
-	PAGE_COUNT :: 4
+	PAGE_COUNT :: 5
 	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
 	frame_time: f32
@@ -400,20 +400,14 @@ main :: proc() {
 				text := "Rotating text!"
 				text_size := f32(48)
 				center := canvas_size / 2
-				size := vgo.measure_text(text, regular_font, text_size)
+				text_layout := vgo.make_text_layout(text, regular_font, text_size)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(animation_time * 0.1)
-				vgo.fill_text(
-					text,
-					regular_font,
-					text_size,
-					-size / 2 + 4,
-					paint = vgo.GRAY(0.01),
-				)
-				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
+				vgo.fill_text_layout(text_layout, -text_layout.size / 2 + 4, paint = vgo.GRAY(0.1))
+				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.WHITE)
 			}
 			{
 				box := layout.bounds
@@ -421,13 +415,14 @@ main :: proc() {
 				text := "Stretched text"
 				text_size := f32(48)
 				center := canvas_size / 2 + {0, -200}
-				size := vgo.measure_text(text, regular_font, text_size)
+				text_layout := vgo.make_text_layout(text, regular_font, text_size)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.scale({1.0 + math.cos(animation_time) * 0.5, 1.0})
-				vgo.fill_text(text, regular_font, text_size, -size / 2, paint = vgo.WHITE)
+
+				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.WHITE)
 			}
 			{
 				box := layout.bounds
@@ -435,9 +430,9 @@ main :: proc() {
 				text := "Dynamic text size"
 				text_size := f32(48) + math.sin(animation_time * 0.3) * 32
 				center := canvas_size / 2 + {0, 200}
-				size := vgo.measure_text(text, regular_font, text_size)
 
-				vgo.fill_text(text, regular_font, text_size, center - size / 2, paint = vgo.WHITE)
+				text_layout := vgo.make_text_layout("Dynamic text scale", regular_font, text_size)
+				vgo.fill_text_layout(text_layout, center - text_layout.size / 2, paint = vgo.WHITE)
 			}
 		case 3:
 			box := layout.bounds
@@ -471,6 +466,13 @@ main :: proc() {
 					vgo.WHITE,
 				).y + 10
 			}
+		case 4:
+			max_width := f32(400)
+			text_layout := vgo.make_text_layout(LOREM_IPSUM, regular_font, 24, {wrap = .Character, justify = .Left, max_width = max_width})
+			origin := canvas_size / 2
+			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.GRAY(0.1))
+			vgo.fill_text_layout(text_layout, origin, vgo.fade(vgo.WHITE, 0.5))
+			vgo.text_layout_scaffold(text_layout, origin)
 		}
 
 		vgo.fill_text(

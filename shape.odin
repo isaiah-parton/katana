@@ -197,8 +197,8 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo = shape.quad_min
 		box.hi = shape.quad_max
 	case .Line_Segment:
-		box.lo = shape.cv0 - shape.width
-		box.hi = shape.cv1 + shape.width
+		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width
+		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width
 	case .Box:
 		box.lo = shape.cv0
 		box.hi = shape.cv1
@@ -343,10 +343,10 @@ paint_index_from_option :: proc(option: Paint_Option) -> Paint_Index {
 // Draw one or more line segments connected with miter joints
 lines :: proc(
 	points: [][2]f32,
-	thickness: f32,
-	color: Color,
+	width: f32,
 	closed: bool = false,
 	justify: Stroke_Justify = .Center,
+	paint: Paint_Option = nil,
 ) {
 	if len(points) < 2 {
 		return
@@ -354,12 +354,12 @@ lines :: proc(
 	left, right: f32
 	switch justify {
 	case .Center:
-		left = thickness / 2
+		left = width / 2
 		right = left
 	case .Outer:
-		left = thickness
+		left = width
 	case .Inner:
-		right = thickness
+		right = width
 	}
 	v0, v1: [2]f32
 	for i in 0 ..< len(points) {
@@ -388,25 +388,29 @@ lines :: proc(
 		if p1 == p2 {
 			continue
 		}
-		line := linalg.normalize(p2 - p1)
-		normal := linalg.normalize([2]f32{-line.y, line.x})
-		tangent2 := line if p2 == p3 else linalg.normalize(linalg.normalize(p3 - p2) + line)
-		miter2: [2]f32 = {-tangent2.y, tangent2.x}
-		dot2 := linalg.dot(normal, miter2)
-		// Start of segment
-		if i == 0 {
-			tangent1 := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
-			miter1: [2]f32 = {-tangent1.y, tangent1.x}
-			dot1 := linalg.dot(normal, miter1)
-			v0 = p1 - (left / dot1) * miter1
-			v1 = p1 + (right / dot1) * miter1
+		if width <= 1.0 {
+			line(p1, p2, width, paint)
+		} else {
+			line := linalg.normalize(p2 - p1)
+			normal := linalg.normalize([2]f32{-line.y, line.x})
+			tangent2 := line if p2 == p3 else linalg.normalize(linalg.normalize(p3 - p2) + line)
+			miter2: [2]f32 = {-tangent2.y, tangent2.x}
+			dot2 := linalg.dot(normal, miter2)
+			// Start of segment
+			if i == 0 {
+				tangent1 := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
+				miter1: [2]f32 = {-tangent1.y, tangent1.x}
+				dot1 := linalg.dot(normal, miter1)
+				v0 = p1 - (left / dot1) * miter1
+				v1 = p1 + (right / dot1) * miter1
+			}
+			// End of segment
+			nv0 := p2 - (left / dot2) * miter2
+			nv1 := p2 + (right / dot2) * miter2
+			// Add a polygon for each quad
+			fill_polygon({v0, v1, nv1, nv0}, paint = paint)
+			v0, v1 = nv0, nv1
 		}
-		// End of segment
-		nv0 := p2 - (left / dot2) * miter2
-		nv1 := p2 + (right / dot2) * miter2
-		// Add a polygon for each quad
-		fill_polygon(v0, v1, nv1, nv0, paint = color)
-		v0, v1 = nv0, nv1
 	}
 }
 
@@ -429,8 +433,8 @@ line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
 	add_shape(
 		Shape {
 			kind = .Line_Segment,
-			cv0 = a,
-			cv1 = b,
+			cv0 = a - 0.5,
+			cv1 = b - 0.5,
 			width = width,
 			paint = paint_index_from_option(paint),
 		},
@@ -461,13 +465,17 @@ stroke_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option)
 	)
 }
 
-fill_polygon :: proc(vertices: ..[2]f32, paint: Paint_Option = nil) {
+fill_polygon :: proc(vertices: [][2]f32, paint: Paint_Option = nil) {
 	add_shape(Shape {
 		kind  = .Polygon,
 		start = add_vertices(..vertices),
 		count = u32(len(vertices)),
 		paint = paint_index_from_option(paint),
 	})
+}
+
+stroke_polygon :: proc(vertices: [][2]f32, width: f32 = 1, paint: Paint_Option = nil) {
+	lines(vertices, width, true, paint = paint)
 }
 
 lerp_cubic_bezier :: proc(a, b, c, d: [2]f32, t: f32) -> [2]f32 {
@@ -563,7 +571,7 @@ arrow :: proc(pos: [2]f32, scale: f32, color: Color) {
 	lines(
 		{pos + {-1, -0.5} * scale, pos + {0, 0.5} * scale, pos + {1, -0.5} * scale},
 		2,
-		color,
+		paint = color,
 	)
 }
 
@@ -571,7 +579,7 @@ check :: proc(pos: [2]f32, scale: f32, color: Color) {
 	lines(
 		{pos + {-1, -0.047} * scale, pos + {-0.333, 0.619} * scale, pos + {1, -0.713} * scale},
 		2,
-		color,
+		paint = color,
 	)
 }
 
