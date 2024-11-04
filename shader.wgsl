@@ -119,15 +119,15 @@ fn sd_arc_square(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, radius: f32, widt
   return sd_subtract(sd_pie2(pp, vec2<f32>(scb.x, -scb.y)), abs(sd_circle(pp, radius)) - width);
 }
 fn sd_arc(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, ra: f32, rb: f32) -> f32 {
-	var pp = p * mat2x2<f32>(vec2<f32>(sca.x,sca.y),vec2<f32>(-sca.y,sca.x));
+	var pp = p * mat2x2<f32>(vec2<f32>(sca.x, sca.y), vec2<f32>(-sca.y, sca.x));
   pp.x = abs(pp.x);
   var k = 0.0;
-  if (scb.y*pp.x>scb.x*pp.y) {
-      k = dot(pp,scb);
+  if (scb.y * pp.x > scb.x * pp.y) {
+    k = dot(pp, scb);
   } else {
-      k = length(pp);
+    k = length(pp);
   }
-  return sqrt( dot(pp,pp) + ra*ra - 2.0*ra*k ) - rb + 1;
+  return sqrt(dot(pp, pp) + ra * ra - 2.0 * ra * k) - rb + 1;
 }
 fn sd_box(p: vec2<f32>, b: vec2<f32>, rr: vec4<f32>) -> f32 {
 	var r: vec2<f32>;
@@ -405,7 +405,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
         	 s *= -1.0;
         }
       }
-      return s * sqrt(d);
+      return s * sqrt(d) + 0.5;
     }
     // Glyph
     case 9u: {
@@ -431,9 +431,17 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 
 	switch (shape.stroke) {
 		case 1u: {
-			d = abs(d) - shape.width / 2 + 0.5;
+			let r = shape.width * 0.5;
+			d = abs(d + r - 0.5) - r + 0.5;
 		}
 		case 2u: {
+			d = abs(d) - shape.width / 2 + 0.5;
+		}
+		case 3u: {
+			let r = shape.width * 0.5;
+			d = abs(d - r + 0.5) - r + 0.5;
+		}
+		case 4u: {
 			d = smoothstep(0.0, 1.0, d / shape.width);
 		}
 		default: {}

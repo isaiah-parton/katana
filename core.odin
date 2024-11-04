@@ -29,6 +29,7 @@ Core :: struct {
 	fallback_font:        Maybe(Font),
 	// Scissors are capped at 8 for the sake of sanity
 	scissor_stack:        Stack(Scissor, 8),
+	scissor_stack_stack: 	Stack(Stack(Scissor, 8), 8),
 	disable_scissor: bool,
 	// Draw calls for ordered drawing
 	draw_calls:           [dynamic]Draw_Call,
@@ -214,8 +215,9 @@ push_stack :: proc(stack: ^Stack($T, $N), item: T) -> bool {
 	return true
 }
 
-pop_stack :: proc(stack: ^Stack($T, $N)) {
+pop_stack :: proc(stack: ^Stack($T, $N)) -> T {
 	stack.height -= 1
+	return stack.items[stack.height]
 }
 
 inject_stack :: proc(stack: ^Stack($T, $N), at: int, item: T) -> bool {

@@ -23,7 +23,9 @@ Shape_Kind :: enum u32 {
 
 Shape_Outline :: enum u32 {
 	None,
+	Inner_Stroke,
 	Stroke,
+	Outer_Stroke,
 	Glow,
 }
 
@@ -234,16 +236,19 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 	}
 
 	if shape.kind != .Glyph {
-		if shape.outline == .Stroke {
-			box.lo -= shape.width / 2
-			box.hi += shape.width / 2
-		} else if shape.outline == .Glow {
+		switch shape.outline {
+		case .None:
+		case .Inner_Stroke:
+		case .Outer_Stroke, .Glow:
 			box.lo -= shape.width
 			box.hi += shape.width
+		case .Stroke:
+			box.lo -= shape.width / 2
+			box.hi += shape.width / 2
 		}
 
-		box.lo -= 2
-		box.hi += 2
+		box.lo -= 1
+		box.hi += 1
 	}
 
 	return box
@@ -340,76 +345,79 @@ paint_index_from_option :: proc(option: Paint_Option) -> Paint_Index {
 // 	add_indices(a, b, c, a, c, d)
 // }
 
+Line_Join_Style :: enum {
+	Round,
+	Miter,
+}
+
 // Draw one or more line segments connected with miter joints
 lines :: proc(
 	points: [][2]f32,
 	width: f32,
 	closed: bool = false,
-	justify: Stroke_Justify = .Center,
+	join_style: Line_Join_Style = .Round,
 	paint: Paint_Option = nil,
 ) {
 	if len(points) < 2 {
 		return
 	}
-	left, right: f32
-	switch justify {
-	case .Center:
-		left = width / 2
-		right = left
-	case .Outer:
-		left = width
-	case .Inner:
-		right = width
-	}
-	v0, v1: [2]f32
-	for i in 0 ..< len(points) {
-		a := i - 1
-		b := i
-		c := i + 1
-		d := i + 2
-		if a < 0 {
+	switch join_style {
+	case .Round:
+		for i in 0..<len(points) - 1 {
+			line(points[i], points[i + 1], width, paint)
+		}
+	case .Miter:
+		v0, v1: [2]f32
+		for i in 0 ..< len(points) {
+			a := i - 1
+			b := i
+			c := i + 1
+			d := i + 2
+			if a < 0 {
+				if closed {
+					a = len(points) - 1
+				} else {
+					a = 0
+				}
+			}
 			if closed {
-				a = len(points) - 1
+				c = c % len(points)
+				d = d % len(points)
 			} else {
-				a = 0
+				c = min(len(points) - 1, c)
+				d = min(len(points) - 1, d)
 			}
-		}
-		if closed {
-			c = c % len(points)
-			d = d % len(points)
-		} else {
-			c = min(len(points) - 1, c)
-			d = min(len(points) - 1, d)
-		}
-		p0 := points[a]
-		p1 := points[b]
-		p2 := points[c]
-		p3 := points[d]
-		if p1 == p2 {
-			continue
-		}
-		if width <= 1.0 {
-			line(p1, p2, width, paint)
-		} else {
-			line := linalg.normalize(p2 - p1)
-			normal := linalg.normalize([2]f32{-line.y, line.x})
-			tangent2 := line if p2 == p3 else linalg.normalize(linalg.normalize(p3 - p2) + line)
-			miter2: [2]f32 = {-tangent2.y, tangent2.x}
-			dot2 := linalg.dot(normal, miter2)
-			// Start of segment
-			if i == 0 {
-				tangent1 := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
-				miter1: [2]f32 = {-tangent1.y, tangent1.x}
-				dot1 := linalg.dot(normal, miter1)
-				v0 = p1 - (left / dot1) * miter1
-				v1 = p1 + (right / dot1) * miter1
+			p0 := points[a]
+			p1 := points[b]
+			p2 := points[c]
+			p3 := points[d]
+			if p1 == p2 {
+				continue
 			}
-			// End of segment
-			nv0 := p2 - (left / dot2) * miter2
-			nv1 := p2 + (right / dot2) * miter2
-			// Add a polygon for each quad
-			fill_polygon({v0, v1, nv1, nv0}, paint = paint)
-			v0, v1 = nv0, nv1
+			if width <= 1.0 {
+				line(p1, p2, width, paint)
+			} else {
+				width := width / 2
+				line := linalg.normalize(p2 - p1)
+				normal := linalg.normalize([2]f32{-line.y, line.x})
+				tangent2 := line if p2 == p3 else linalg.normalize(linalg.normalize(p3 - p2) + line)
+				miter2: [2]f32 = {-tangent2.y, tangent2.x}
+				dot2 := linalg.dot(normal, miter2)
+				// Start of segment
+				if i == 0 {
+					tangent1 := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
+					miter1: [2]f32 = {-tangent1.y, tangent1.x}
+					dot1 := linalg.dot(normal, miter1)
+					v0 = p1 - (width / dot1) * miter1
+					v1 = p1 + (width / dot1) * miter1
+				}
+				// End of segment
+				nv0 := p2 - (width / dot2) * miter2
+				nv1 := p2 + (width / dot2) * miter2
+				// Add a polygon for each quad
+				fill_polygon({v0, v1, nv1, nv0}, paint = paint)
+				v0, v1 = nv0, nv1
+			}
 		}
 	}
 }
@@ -433,9 +441,9 @@ line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
 	add_shape(
 		Shape {
 			kind = .Line_Segment,
-			cv0 = a - 0.5,
-			cv1 = b - 0.5,
-			width = width,
+			cv0 = a,
+			cv1 = b,
+			width = width - 0.5,
 			paint = paint_index_from_option(paint),
 		},
 	)
@@ -495,7 +503,7 @@ fill_pie :: proc(center: [2]f32, from, to, radius: f32, paint: Paint_Option) {
 
 stroke_pie :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Paint_Option) {
 	shape := make_pie(center, from, to, radius)
-	shape.outline = .Stroke
+	shape.outline = .Inner_Stroke
 	shape.width = width
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
@@ -525,7 +533,7 @@ stroke_circle :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option) {
 			cv0 = center,
 			radius = radius,
 			width = width,
-			outline = .Stroke,
+			outline = .Inner_Stroke,
 			paint = paint_index_from_option(paint),
 		},
 	)
@@ -539,7 +547,7 @@ fill_box :: proc(box: Box, radius: [4]f32 = {}, paint: Paint_Option = nil) {
 
 stroke_box :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option) {
 	shape := make_box(box, radius)
-	shape.outline = .Stroke
+	shape.outline = .Inner_Stroke
 	shape.width = width
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
@@ -567,11 +575,20 @@ spinner :: proc(center: [2]f32, radius: f32, color: Color) {
 	arc(center, from, to, radius - width, radius, color)
 }
 
-arrow :: proc(pos: [2]f32, scale: f32, color: Color) {
+arrow :: proc(pos: [2]f32, scale: f32, angle: f32 = 0, paint: Paint_Option = nil) {
+	push_matrix()
+	defer pop_matrix()
+	translate(pos)
+	rotate(angle)
+	translate(-pos)
 	lines(
-		{pos + {-1, -0.5} * scale, pos + {0, 0.5} * scale, pos + {1, -0.5} * scale},
+		{
+			pos + [2]f32{-0.5, -0.877} * scale,
+			pos + [2]f32{0.5, 0} * scale,
+			pos + [2]f32{-0.5, 0.877} * scale,
+		},
 		2,
-		paint = color,
+		paint = paint,
 	)
 }
 

@@ -183,6 +183,17 @@ enable_scissor :: proc() {
 	core.disable_scissor = false
 }
 
+// Save the current scissor stack to another stack
+save_scissor :: proc() {
+	push_stack(&core.scissor_stack_stack, core.scissor_stack)
+	core.scissor_stack.height = 0
+}
+
+// Restore the last saved scissor stack from the scissor stack stack
+restore_scissor :: proc() {
+	core.scissor_stack = pop_stack(&core.scissor_stack_stack)
+}
+
 // Construct a linear gradient paint for the GPU
 make_linear_gradient :: proc(
 	start_point, end_point: [2]f32,
@@ -191,7 +202,7 @@ make_linear_gradient :: proc(
 	diff := linalg.abs(normalize_color(end_color) - normalize_color(start_color))
 	return Paint {
 		kind = .Linear_Gradient,
-		noise = (1.0 - (diff.x + diff.y + diff.z) * 0.333) * 0.012,
+		noise = (linalg.length(end_point - start_point) / 255.0) * 0.01,
 		cv0 = start_point,
 		cv1 = end_point,
 		col0 = normalize_color(start_color),
