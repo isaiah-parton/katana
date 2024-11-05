@@ -515,7 +515,7 @@ arc :: proc(center: [2]f32, from, to: f32, radius, width: f32, paint: Paint_Opti
 	add_shape(shape)
 }
 
-fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option) {
+fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option = nil) {
 	add_shape(
 		Shape {
 			kind = .Circle,
@@ -526,7 +526,7 @@ fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option) {
 	)
 }
 
-stroke_circle :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option) {
+stroke_circle :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option = nil) {
 	add_shape(
 		Shape {
 			kind = .Circle,
