@@ -39,11 +39,15 @@ destroy_font :: proc(font: ^Font) {
 	font^ = {}
 }
 
-load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: Font, ok: bool) {
-
+load_font_from_files :: proc(image_file, json_file: string) -> (font: Font, ok: bool) {
 	image_data := os.read_entire_file(image_file) or_return
 	defer delete(image_data)
+	json_data := os.read_entire_file(json_file) or_return
+	defer delete(json_data)
+	return load_font_from_slices(image_data, json_data)
+}
 
+load_font_from_slices :: proc(image_data, json_data: []u8) -> (font: Font, ok: bool) {
 	width, height: libc.int
 	bitmap_data := stbi.load_from_memory(
 		raw_data(image_data),
@@ -53,12 +57,9 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 		nil,
 		4,
 	)
+
 	if bitmap_data == nil do return
-
 	atlas_source := copy_image_to_atlas(bitmap_data, int(width), int(height))
-
-	json_data := os.read_entire_file(json_file) or_return
-	defer delete(json_data)
 
 	json_value, json_err := json.parse(json_data)
 	defer json.destroy_value(json_value)
@@ -83,13 +84,10 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 
 	for glyph_value, i in obj["glyphs"].(json.Array) or_return {
 		glyph_obj := glyph_value.(json.Object) or_return
-
 		code := rune(i32(glyph_obj["unicode"].(json.Float) or_return))
-
 		glyph := Font_Glyph {
 			advance = f32(glyph_obj["advance"].(json.Float) or_return),
 		}
-
 		// left, bottom, right, top
 		if plane_bounds_obj, ok := glyph_obj["planeBounds"].(json.Object); ok {
 			glyph.bounds = Box {
@@ -123,6 +121,7 @@ load_font_from_image_and_json :: proc(image_file, json_file: string) -> (font: F
 		glyphs[index] = glyph
 	}
 	font.glyphs = glyphs[:]
+	ok = true
 
 	return
 }

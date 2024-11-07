@@ -85,12 +85,12 @@ main :: proc() {
 	defer vgo.shutdown()
 
 	// Load some fonts
-	light_font, _ := vgo.load_font_from_image_and_json(
+	light_font, _ := vgo.load_font_from_files(
 		"fonts/KumbhSans-Regular.png",
 		"fonts/KumbhSans-Regular.json",
 	)
 	regular_font := light_font
-	icon_font, _ := vgo.load_font_from_image_and_json(
+	icon_font, _ := vgo.load_font_from_files(
 		"fonts/remixicon.png",
 		"fonts/remixicon.json",
 	)
