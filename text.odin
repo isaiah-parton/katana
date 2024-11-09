@@ -66,6 +66,7 @@ Text_Iterator :: struct {
 	glyph:      Font_Glyph,
 	// Line width to wrap at
 	max_width:  f32,
+	max_height: f32,
 	// Current line width
 	line_width: f32,
 	// Set to true if `char` is the first of a new line
@@ -99,7 +100,7 @@ Text_Align_Y :: enum {
 Text_Options :: struct {
 	spacing:   f32,
 	max_width: Maybe(f32),
-	max_lines: Maybe(int),
+	max_height: Maybe(f32),
 	wrap:      Text_Wrap,
 	justify:   Text_Justify,
 	hidden:    bool,
@@ -119,6 +120,7 @@ make_text_iterator :: proc(
 	iter.options = options
 	iter.options.spacing = max(0, iter.options.spacing)
 	iter.max_width = options.max_width.? or_else math.F32_MAX
+	iter.max_height = options.max_height.? or_else math.F32_MAX
 	return
 }
 
@@ -127,7 +129,6 @@ make_text_layout :: proc(
 	font: Font,
 	size: f32,
 	options: Text_Options = {},
-	// Options for text interaction
 	mouse: [2]f32 = {},
 	selection: Maybe([2]int) = nil,
 ) -> (
@@ -161,38 +162,29 @@ make_text_layout :: proc(
 			at_end = true
 		}
 
-		// Check for hovered index
-		// Before `closest` gets reset
 		dist := abs(iter.offset.x - mouse.x)
 		if dist < closest {
 			closest = dist
 			hovered_rune = iter.index
 		}
 
-		// Lines
 		if iter.new_line || at_end {
 			current_line := len(core.text_lines) - first_line
 
-			// Clamp hovered line index if this is the last one
 			if at_end {
 				layout.hovered_line = min(layout.hovered_line, current_line)
 			}
 
-			// Determine hovered rune
 			if current_line == layout.hovered_line {
 				layout.mouse_index = hovered_rune
 			}
 
-			// Reset glyph search
 			hovered_rune = -1
 			closest = math.F32_MAX
 
-			// Determine line length in runes
 			line.glyph_range[1] = len(core.text_glyphs)
 			line.size = {iter.line_width, font.line_height * size}
 
-			// Apply line offset
-			// For justify
 			line_offset: [2]f32
 			switch iter.options.justify {
 			case .Left:
@@ -206,27 +198,19 @@ make_text_layout :: proc(
 			}
 			line.offset += line_offset
 
-			// Make the line's glyph rance local
 			line.glyph_range -= first_glyph
 
-			// Append the current line
 			append(&core.text_lines, line)
 
-			// Update text size
 			layout.size.x = max(layout.size.x, line.size.x)
 			layout.size.y += iter.font.line_height * iter.size
-			if iter.new_line {
-				// layout.size.y -= font.descend * iter.size
-			}
 
-			// Reset the current line
 			line = Text_Line {
 				glyph_range = {0 = line.glyph_range[1]},
 				offset = iter.offset,
 			}
 		}
 
-		// Get glyph selection
 		if selection, ok := selection.?; ok {
 			if selection[0] == iter.index {
 				layout.glyph_selection[0] = len(core.text_glyphs) - first_glyph
@@ -359,6 +343,9 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 	if iter.new_line {
 		iter.offset.x = 0
 		iter.offset.y += iter.font.line_height * iter.size
+		if iter.offset.y > iter.max_height {
+			ok = false
+		}
 	}
 
 	iter.line_width += iter.glyph.advance * iter.size
