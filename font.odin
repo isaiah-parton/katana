@@ -39,6 +39,14 @@ destroy_font :: proc(font: ^Font) {
 	font^ = {}
 }
 
+set_font :: proc(font: Font) {
+	core.current_font = font
+}
+
+set_fallback_font :: proc(font: Font) {
+	core.fallback_font = font
+}
+
 load_font_from_files :: proc(image_file, json_file: string) -> (font: Font, ok: bool) {
 	image_data := os.read_entire_file(image_file) or_return
 	defer delete(image_data)

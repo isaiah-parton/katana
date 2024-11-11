@@ -1,5 +1,6 @@
 package vgo
 
+import "base:intrinsics"
 import "core:fmt"
 import "core:math"
 import "core:math/linalg"
@@ -20,66 +21,40 @@ Text_Wrap :: enum {
 
 Text_Glyph :: struct {
 	using glyph: Font_Glyph,
-	// Rune
 	code:        rune,
-	// Encoded index
 	index:       int,
-	// Position relative to text origin
 	offset:      [2]f32,
 }
 
 Text_Line :: struct {
-	// Metrics
 	offset:      [2]f32,
 	size:        [2]f32,
-	// Occupied range in string indices
 	index_range: [2]int,
-	// Range of glyph
 	glyph_range: [2]int,
 }
 
 Text_Layout :: struct {
 	font:            Font,
 	font_scale:      f32,
-	// Layout objects
 	glyphs:          []Text_Glyph,
 	lines:           []Text_Line,
-	// Layout size excluding descent
 	size:            [2]f32,
-	// Actual space occupied by displayed glyphs
 	display_size:    [2]f32,
-	// Selection range
 	glyph_selection: [2]int,
-	// Interaction results
 	mouse_index:     int,
 	hovered_glyph:   int,
 	hovered_line:    int,
 }
 
 Text_Iterator :: struct {
-	// Text parameters
-	text:       string,
-	options:    Text_Options,
-	font:       Font,
-	size:       f32,
-	// Current glyph
 	glyph:      Font_Glyph,
-	// Line width to wrap at
-	max_width:  f32,
-	max_height: f32,
-	// Current line width
 	line_width: f32,
-	// Set to true if `char` is the first of a new line
 	new_line:   bool,
-	// Current glyph offset
+	at_end:     bool,
 	offset:     [2]f32,
-	// Previous rune
 	last_char:  rune,
-	// Current rune
 	char:       rune,
-	// Starting index of the next word
 	next_word:  int,
-	// Codepoint indices
 	index:      int,
 	next_index: int,
 }
@@ -98,53 +73,57 @@ Text_Align_Y :: enum {
 }
 
 Text_Options :: struct {
-	spacing:   f32,
-	max_width: Maybe(f32),
-	max_height: Maybe(f32),
-	wrap:      Text_Wrap,
-	justify:   Text_Justify,
-	hidden:    bool,
+	spacing:    f32,
+	max_width:  f32,
+	max_height: f32,
+	wrap:       Text_Wrap,
+	justify:    Text_Justify,
 }
 
-make_text_iterator :: proc(
-	text: string,
-	font: Font,
-	size: f32,
-	options: Text_Options,
-) -> (
-	iter: Text_Iterator,
-) {
-	iter.text = text
-	iter.font = font
-	iter.size = size
-	iter.options = options
-	iter.options.spacing = max(0, iter.options.spacing)
-	iter.max_width = options.max_width.? or_else math.F32_MAX
-	iter.max_height = options.max_height.? or_else math.F32_MAX
-	return
+DEFAULT_TEXT_OPTIONS :: Text_Options {
+	spacing    = 1,
+	max_width  = math.F32_MAX,
+	max_height = math.F32_MAX,
+	wrap       = .None,
+	justify    = .Left,
+}
+
+// Argument defaults should be faster than checking a `Maybe()`
+text_options :: proc(
+	spacing: f32 = DEFAULT_TEXT_OPTIONS.spacing,
+	max_width: f32 = DEFAULT_TEXT_OPTIONS.max_width,
+	max_height: f32 = DEFAULT_TEXT_OPTIONS.max_height,
+	wrap: Text_Wrap = DEFAULT_TEXT_OPTIONS.wrap,
+	justify: Text_Justify = DEFAULT_TEXT_OPTIONS.justify,
+) -> Text_Options {
+	return {
+		spacing = spacing,
+		max_width = max_width,
+		max_height = max_height,
+		wrap = wrap,
+		justify = justify,
+	}
 }
 
 make_text_layout :: proc(
 	text: string,
-	font: Font,
 	size: f32,
-	options: Text_Options = {},
-	mouse: [2]f32 = {},
+	font: Font = core.current_font,
+	options: Text_Options = DEFAULT_TEXT_OPTIONS,
+	local_mouse: [2]f32 = {},
 	selection: Maybe([2]int) = nil,
 ) -> (
 	layout: Text_Layout,
 ) {
+	iter: Text_Iterator
 
-	iter := make_text_iterator(text, font, size, options)
-
-	// Check glyph limit
 	first_glyph := len(core.text_glyphs)
 	first_line := len(core.text_lines)
 
 	line: Text_Line = {
 		glyph_range = {0 = first_glyph},
 	}
-	line_height := (font.ascend - font.descend) * iter.size
+	line_height := (font.ascend - font.descend) * size
 
 	layout.hovered_glyph = -1
 	layout.font_scale = size
@@ -153,25 +132,20 @@ make_text_layout :: proc(
 	hovered_rune: int = -1
 	closest: f32 = math.F32_MAX
 
-	layout.hovered_line = max(0, int(mouse.y / line_height))
+	layout.hovered_line = max(0, int(local_mouse.y / line_height))
 
-	at_end: bool
+	for iterate_text(&iter, text, font, size, options) {
 
-	for {
-		if !iterate_text(&iter) {
-			at_end = true
-		}
-
-		dist := abs(iter.offset.x - mouse.x)
+		dist := abs(iter.offset.x - local_mouse.x)
 		if dist < closest {
 			closest = dist
 			hovered_rune = iter.index
 		}
 
-		if iter.new_line || at_end {
+		if iter.new_line || iter.at_end {
 			current_line := len(core.text_lines) - first_line
 
-			if at_end {
+			if iter.at_end {
 				layout.hovered_line = min(layout.hovered_line, current_line)
 			}
 
@@ -184,156 +158,159 @@ make_text_layout :: proc(
 
 			line.glyph_range[1] = len(core.text_glyphs)
 			line.size = {iter.line_width, font.line_height * size}
-
 			line_offset: [2]f32
-			switch iter.options.justify {
+
+			switch options.justify {
 			case .Left:
 			case .Center:
 				line_offset.x = -line.size.x / 2
 			case .Right:
 				line_offset.x = -line.size.x
 			}
+
 			for &glyph in core.text_glyphs[line.glyph_range[0]:line.glyph_range[1]] {
 				glyph.offset += line_offset
 			}
 			line.offset += line_offset
 
-			line.glyph_range -= first_glyph
-
-			append(&core.text_lines, line)
-
-			layout.size.x = max(layout.size.x, line.size.x)
-			layout.size.y += iter.font.line_height * iter.size
-
-			line = Text_Line {
+			new_line := Text_Line {
 				glyph_range = {0 = line.glyph_range[1]},
 				offset = iter.offset,
 			}
+
+			line.glyph_range -= first_glyph
+			layout.size.x = max(layout.size.x, line.size.x)
+			layout.size.y += font.line_height * size
+			append(&core.text_lines, line)
+
+			line = new_line
 		}
 
+
 		if selection, ok := selection.?; ok {
-			if selection[0] == iter.index {
-				layout.glyph_selection[0] = len(core.text_glyphs) - first_glyph
-			}
-			if selection[1] == iter.index {
-				layout.glyph_selection[1] = len(core.text_glyphs) - first_glyph
-			}
+			local_glyph_index := len(core.text_glyphs) - first_glyph
+			if selection[0] == iter.index do selection[0] = local_glyph_index
+			if selection[1] == iter.index do selection[1] = local_glyph_index
 		}
 
 		// Add a glyph last so that `len(core.text_glyphs)` is the index of this glyph
-		append(
-			&core.text_glyphs,
-			Text_Glyph {
-				glyph = iter.glyph,
-				code = iter.char,
-				index = iter.index,
-				offset = iter.offset,
-			},
-		)
-
-		if at_end {
-			break
+		if !iter.at_end {
+			append(
+				&core.text_glyphs,
+				Text_Glyph {
+					glyph = iter.glyph,
+					code = iter.char,
+					index = iter.index,
+					offset = iter.offset,
+				},
+			)
 		}
 	}
 
-	// Take a slice of the global arrays
 	layout.glyphs = core.text_glyphs[first_glyph:]
 	layout.lines = core.text_lines[first_line:]
 
-	// Figure out which line is hovered
-	line_count := int(math.floor(layout.size.y / line_height))
-	layout.hovered_line = int(mouse.y / line_height)
-	if layout.hovered_line < 0 || layout.hovered_line >= line_count {
-		layout.hovered_line = -1
-	}
+	layout.hovered_line =
+		closest_line_of_text(local_mouse.y, layout.size.y, line_height).? or_else -1
 
 	return
 }
 
-set_fallback_font :: proc(font: Font) {
-	core.fallback_font = font
+find_font_glyph :: proc(font: Font, char: rune) -> Font_Glyph {
+	glyph: Font_Glyph
+	ok: bool
+	glyph, ok = get_font_glyph(font, char)
+	if !ok && char > unicode.MAX_LATIN1 && core.fallback_font != nil {
+		glyph, ok = get_font_glyph(core.fallback_font.?, char)
+	}
+	return glyph
 }
 
-iterate_text_rune :: proc(it: ^Text_Iterator) -> bool {
-	it.last_char = it.char
-	if it.next_index >= len(it.text) {
+@(private)
+closest_line_of_text :: proc(offset, layout_height, line_height: f32) -> Maybe(int) {
+	line_count := int(math.floor(layout_height / line_height))
+	hovered_line := int(offset / line_height)
+	return hovered_line if (hovered_line >= 0 && hovered_line < line_count) else nil
+}
+
+@(private)
+first_word_in :: proc(
+	text: string,
+	font: Font,
+	size: f32,
+	spacing: f32,
+) -> (
+	end: int,
+	width: f32,
+) {
+	for i := 0; true; {
+		char, bytes := utf8.decode_rune(text[i:])
+		if char != '\n' {
+			if glyph, ok := get_font_glyph(font, char); ok {
+				width += glyph.advance * size + spacing
+			}
+		}
+		if char == ' ' || i > len(text) - 1 {
+			end = i + bytes
+			break
+		}
+		i += bytes
+	}
+	return
+}
+
+@(private)
+iterate_text :: proc(
+	iter: ^Text_Iterator,
+	text: string,
+	font: Font,
+	size: f32,
+	options: Text_Options = DEFAULT_TEXT_OPTIONS,
+) -> bool {
+	iter := iter
+
+	if iter.at_end {
 		return false
 	}
-	// Update index
-	it.index = it.next_index
-	// Decode next char
-	bytes: int
-	it.char, bytes = utf8.decode_rune(it.text[it.index:])
-	// Update next index
-	it.next_index += bytes
-	// Get current glyph data
-	if it.char == '\n' || it.char == '\r' {
-		it.glyph = {}
-	} else {
-		r := '•' if it.options.hidden else it.char
-		ok: bool
-		it.glyph, ok = get_font_glyph(it.font, r)
-		// Try fallback font
-		if !ok && r > unicode.MAX_LATIN1 && core.fallback_font != nil {
-			it.glyph, ok = get_font_glyph(core.fallback_font.?, r)
-		}
-	}
-	return true
-}
-
-iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 
 	if iter.new_line {
 		iter.line_width = 0
+		iter.line_width += iter.glyph.advance * size + options.spacing
 	}
 
-	// Advance glyph position
 	if iter.char != 0 {
-		iter.offset.x += iter.glyph.advance * iter.size + iter.options.spacing
+		iter.offset.x += iter.glyph.advance * size + options.spacing
 	}
 
-	// Get the next glyph
-	ok = iterate_text_rune(iter)
+	iter.last_char = iter.char
+	if iter.next_index >= len(text) {
+		iter.at_end = true
+	}
+	iter.index = iter.next_index
+	bytes: int
+	iter.char, bytes = utf8.decode_rune(text[iter.index:])
+	iter.next_index += bytes
+	iter.glyph = find_font_glyph(font, iter.char)
 
-	// Get the current glyph's advance
-	advance := iter.glyph.advance * iter.size
+	space := iter.glyph.advance * size
 
-	// Space needed to fit this glyph/word
-	space := advance
-	if !ok {
-		// We might need to use the end index
+	if iter.at_end {
 		iter.index = iter.next_index
 		iter.char = 0
 		iter.glyph = {}
-	} else if (iter.options.wrap == .Word) &&
-	   (iter.next_index >= iter.next_word) &&
-	   (iter.char != ' ') {
-		for i := iter.next_word; true; {
-			c, b := utf8.decode_rune(iter.text[i:])
-			if c != '\n' {
-				if g, ok := get_font_glyph(iter.font, iter.char); ok {
-					space += g.advance * iter.size + iter.options.spacing
-				}
-			}
-			if c == ' ' || i > len(iter.text) - 1 {
-				iter.next_word = i + b
-				break
-			}
-			i += b
-		}
+	} else if (options.wrap == .Word) && (iter.index >= iter.next_word) && (iter.char != ' ') {
+		iter.next_word, space = first_word_in(text[iter.index:], font, size, options.spacing)
 	}
 
-	// Reset new line state
 	iter.new_line = false
-	// If the last rune was '\n' then this is a new line
-	if (iter.last_char == '\n') {
+
+	if iter.last_char == '\n' {
 		iter.new_line = true
-	} else {
-		// Or if this rune would exceede the limit
-		if iter.line_width + space > iter.max_width {
-			if iter.options.wrap == .None {
-				iter.char = 0
-				ok = false
+	}
+	if !iter.new_line {
+		if iter.line_width + space > options.max_width {
+			if options.wrap == .None {
+				iter.at_end = true
 			} else {
 				iter.new_line = true
 			}
@@ -342,69 +319,34 @@ iterate_text :: proc(iter: ^Text_Iterator) -> (ok: bool) {
 
 	if iter.new_line {
 		iter.offset.x = 0
-		iter.offset.y += iter.font.line_height * iter.size
-		if iter.offset.y > iter.max_height {
-			ok = false
+		iter.offset.y += font.line_height * size
+		if iter.offset.y > options.max_height {
+			iter.at_end = true
+		}
+	} else {
+		iter.line_width += iter.glyph.advance * size
+		if !iter.at_end {
+			iter.line_width += options.spacing
 		}
 	}
 
-	iter.line_width += iter.glyph.advance * iter.size
-	if ok {
-		iter.line_width += iter.options.spacing
-	}
-
-	return
+	return true
 }
 
-@(private)
-measure_next_line :: proc(iter: Text_Iterator) -> f32 {
-	iter := iter
-	for iterate_text(&iter) {
-		if iter.new_line {
-			break
-		}
-	}
-	return iter.line_width
+measure_text :: proc(
+	text: string,
+	font: Font,
+	size: f32,
+	options: Text_Options = DEFAULT_TEXT_OPTIONS,
+) -> [2]f32 {
+	return make_text_layout(text, size, font, options).size
 }
 
-@(private)
-measure_next_word :: proc(iter: Text_Iterator) -> (size: f32, end: int) {
-	iter := iter
-	for iterate_text_rune(&iter) {
-		size += iter.glyph.advance + iter.options.spacing
-		if iter.char == ' ' {
-			break
-		}
-	}
-	end = iter.index
-	return
-}
-
-measure_text :: proc(text: string, font: Font, size: f32, options: Text_Options = {}) -> [2]f32 {
-	return make_text_layout(text, font, size, options).size
-}
-
-fill_text_layout :: proc(layout: Text_Layout, origin: [2]f32, paint: Paint_Option = nil) {
-	// Determine optimal pixel range for antialiasing
-	paint_index := paint_index_from_option(paint)
-	bias := glyph_bias_from_paint(paint)
-	// Draw the glyphs
-	for &glyph in layout.glyphs {
-		fill_glyph(
-			glyph,
-			layout.font_scale,
-			origin + glyph.offset,
-			paint = paint_index,
-			bias = bias,
-		)
-	}
-}
-
-fill_text_layout_aligned :: proc(
+fill_text_layout :: proc(
 	layout: Text_Layout,
 	origin: [2]f32,
-	align_x: Text_Align_X,
-	align_y: Text_Align_Y,
+	align_x: Text_Align_X = .Left,
+	align_y: Text_Align_Y = .Top,
 	paint: Paint_Option = nil,
 ) {
 	origin := origin
@@ -457,29 +399,16 @@ glyph_bias_from_paint :: proc(paint: Paint_Option) -> f32 {
 
 fill_text :: proc(
 	text: string,
-	font: Font = DEFAULT_FONT,
 	size: f32,
 	origin: [2]f32,
-	options: Text_Options = {},
+	font: Font = core.current_font,
+	align_x: Text_Align_X = .Left,
+	align_y: Text_Align_Y = .Top,
+	options: Text_Options = DEFAULT_TEXT_OPTIONS,
 	paint: Paint_Option = nil,
 ) -> [2]f32 {
-	layout := make_text_layout(text, font, size, options)
-	fill_text_layout(layout, origin, paint)
-	return layout.size
-}
-
-fill_text_aligned :: proc(
-	text: string,
-	font: Font,
-	size: f32,
-	origin: [2]f32,
-	align_x: Text_Align_X,
-	align_y: Text_Align_Y,
-	options: Text_Options = {},
-	paint: Paint_Option = nil,
-) -> [2]f32 {
-	layout := make_text_layout(text, font, size, options)
-	fill_text_layout_aligned(layout, origin, align_x, align_y, paint)
+	layout := make_text_layout(text, size, font = font, options = options)
+	fill_text_layout(layout, origin, align_x, align_y, paint)
 	return layout.size
 }
 

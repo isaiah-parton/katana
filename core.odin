@@ -26,6 +26,7 @@ Core :: struct {
 	last_matrix:          Matrix,
 	matrix_index:         u32,
 	default_font: Font,
+	current_font: Font,
 	fallback_font:        Maybe(Font),
 	// Scissors are capped at 8 for the sake of sanity
 	scissor_stack:        Stack(Scissor, 8),
@@ -157,6 +158,8 @@ new_frame :: proc() {
 	core.frames_this_second += 1
 
 	reset_drawing()
+
+	set_font(core.default_font)
 }
 
 run_time :: proc() -> f32 {
