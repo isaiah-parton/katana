@@ -400,7 +400,7 @@ main :: proc() {
 				text := "Rotating text!"
 				text_size := f32(48)
 				center := canvas_size / 2
-				text_layout := vgo.make_text_layout(text, regular_font, text_size)
+				text_layout := vgo.make_text_layout(text, text_size, regular_font)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
@@ -415,7 +415,7 @@ main :: proc() {
 				text := "Stretched text"
 				text_size := f32(48)
 				center := canvas_size / 2 + {0, -200}
-				text_layout := vgo.make_text_layout(text, regular_font, text_size)
+				text_layout := vgo.make_text_layout(text, text_size, regular_font)
 
 				vgo.push_matrix()
 				defer vgo.pop_matrix()
@@ -431,7 +431,7 @@ main :: proc() {
 				text_size := f32(48) + math.sin(animation_time * 0.3) * 32
 				center := canvas_size / 2 + {0, 200}
 
-				text_layout := vgo.make_text_layout("Dynamic text scale", regular_font, text_size)
+				text_layout := vgo.make_text_layout("Dynamic text scale", text_size, regular_font)
 				vgo.fill_text_layout(text_layout, center - text_layout.size / 2, paint = vgo.WHITE)
 			}
 		case 3:
@@ -451,27 +451,27 @@ main :: proc() {
 			for size, i in TEXT_SIZES {
 				vgo.fill_text(
 					LOREM_IPSUM,
-					light_font,
 					size,
 					left_box.lo + {0, offset},
-					{max_width = left_box.hi.x - left_box.lo.x, wrap = .Word},
-					vgo.BLACK,
+					font = light_font,
+					options = vgo.text_options(max_width = left_box.hi.x - left_box.lo.x, wrap = .Word),
+					paint = vgo.BLACK,
 				)
 				offset += vgo.fill_text(
 					LOREM_IPSUM,
-					light_font,
 					size,
 					right_box.lo + {0, offset},
-					{max_width = right_box.hi.x - right_box.lo.x, wrap = .Word},
-					vgo.WHITE,
+					font = light_font,
+					options = vgo.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word),
+					paint = vgo.WHITE,
 				).y + 10
 			}
 		case 4:
 			max_width := f32(400)
-			text_layout := vgo.make_text_layout(LOREM_IPSUM, regular_font, 24, {wrap = .Character, justify = .Left, max_width = max_width})
+			text_layout := vgo.make_text_layout(LOREM_IPSUM, 24, regular_font, vgo.text_options(wrap = .Word, justify = .Center, max_width = max_width))
 			origin := canvas_size / 2
 			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.GRAY(0.1))
-			vgo.fill_text_layout(text_layout, origin, vgo.fade(vgo.WHITE, 0.5))
+			vgo.fill_text_layout(text_layout, origin, paint = vgo.fade(vgo.WHITE, 0.5))
 			vgo.text_layout_scaffold(text_layout, origin)
 		}
 
@@ -488,9 +488,9 @@ main :: proc() {
 			size := vgo.measure_text(text, light_font, text_size)
 			vgo.fill_text(
 				text,
-				light_font,
 				text_size,
 				{0, canvas_size.y - size.y},
+				font = light_font,
 				paint = vgo.Color(255),
 			)
 		}
