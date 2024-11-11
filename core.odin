@@ -119,18 +119,7 @@ get_fps :: proc() -> f32 {
 	return core.fps
 }
 
-new_frame :: proc() {
-	core.delta_time = f32(time.duration_seconds(time.since(core.frame_time)))
-	core.frame_time = time.now()
-
-	since_last_second := time.since(core.last_second)
-	if since_last_second >= time.Second {
-		core.fps = f32(core.frames_this_second)
-		core.frames_this_second = 0
-		core.last_second = core.frame_time
-	}
-	core.frames_this_second += 1
-
+reset_drawing :: proc() {
 	clear(&core.renderer.shapes.data)
 	clear(&core.renderer.paints.data)
 	clear(&core.renderer.cvs.data)
@@ -153,6 +142,21 @@ new_frame :: proc() {
 	core.matrix_index = 0
 
 	push_matrix()
+}
+
+new_frame :: proc() {
+	core.delta_time = f32(time.duration_seconds(time.since(core.frame_time)))
+	core.frame_time = time.now()
+
+	since_last_second := time.since(core.last_second)
+	if since_last_second >= time.Second {
+		core.fps = f32(core.frames_this_second)
+		core.frames_this_second = 0
+		core.last_second = core.frame_time
+	}
+	core.frames_this_second += 1
+
+	reset_drawing()
 }
 
 run_time :: proc() -> f32 {
