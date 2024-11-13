@@ -189,22 +189,25 @@ make_text_layout :: proc(
 
 		if selection, ok := selection.?; ok {
 			local_glyph_index := len(core.text_glyphs) - first_glyph
-			if selection[0] == iter.index do selection[0] = local_glyph_index
-			if selection[1] == iter.index do selection[1] = local_glyph_index
+			if selection[0] == iter.index do layout.glyph_selection[0] = local_glyph_index
+			if selection[1] == iter.index do layout.glyph_selection[1] = local_glyph_index
+		}
+
+		if iter.at_end {
+			iter.glyph = {}
+			iter.char = 0
 		}
 
 		// Add a glyph last so that `len(core.text_glyphs)` is the index of this glyph
-		if !iter.at_end {
-			append(
-				&core.text_glyphs,
-				Text_Glyph {
-					glyph = iter.glyph,
-					code = iter.char,
-					index = iter.index,
-					offset = iter.offset,
-				},
-			)
-		}
+		append(
+			&core.text_glyphs,
+			Text_Glyph {
+				glyph = iter.glyph,
+				code = iter.char,
+				index = iter.index,
+				offset = iter.offset,
+			},
+		)
 	}
 
 	layout.glyphs = core.text_glyphs[first_glyph:]
