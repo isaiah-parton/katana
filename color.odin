@@ -24,6 +24,7 @@ TURQUOISE :: Color{0, 255, 160, 255}
 GREEN :: Color{0, 210, 58, 255}
 RED :: Color{215, 23, 23, 255}
 GOLD :: Color{255, 195, 0, 255}
+MAGENTA :: Color{255, 0, 138, 255}
 
 
 parse_rgba :: proc(str: string) -> (res: Color, ok: bool) {
