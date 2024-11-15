@@ -49,15 +49,10 @@ Core :: struct {
 	xform:                u32,
 	path_start:           u32,
 	path_point:           [2]f32,
-	text_supersample: f32,
 }
 
 renderer :: proc() -> ^Renderer {
 	return &core.renderer
-}
-
-set_text_supersample :: proc(amount: f32) {
-	core.text_supersample = amount
 }
 
 request_adapter_options :: proc() -> wgpu.RequestAdapterOptions {
