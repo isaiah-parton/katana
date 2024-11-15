@@ -52,6 +52,10 @@ Core :: struct {
 	text_supersample: f32,
 }
 
+renderer :: proc() -> ^Renderer {
+	return &core.renderer
+}
+
 set_text_supersample :: proc(amount: f32) {
 	core.text_supersample = amount
 }

@@ -78,6 +78,12 @@ Shader_Uniforms :: struct #align (8) {
 	text_out_bias: f32,
 }
 
+Debug_Timer :: enum {
+	Setup,
+	Upload,
+	Draw,
+}
+
 Renderer :: struct {
 	// Infrastructure
 	device:                    wgpu.Device,
@@ -97,6 +103,7 @@ Renderer :: struct {
 	paints:                    WGPU_Buffer(Paint),
 	cvs:                       WGPU_Buffer([2]f32),
 	xforms:                    WGPU_Buffer(Matrix),
+	timers: [Debug_Timer]time.Duration,
 }
 
 init_renderer_with_device_and_surface :: proc(
@@ -270,6 +277,10 @@ destroy_renderer :: proc(renderer: ^Renderer) {
 present :: proc() {
 	renderer := &core.renderer
 
+	when ODIN_DEBUG {
+		t := time.now()
+	}
+
 	if core.current_draw_call != nil {
 		core.current_draw_call.shape_count = len(core.renderer.shapes.data) - core.current_draw_call.first_shape
 	}
@@ -352,6 +363,11 @@ present :: proc() {
 		size_of(Shader_Uniforms),
 	)
 
+	when ODIN_DEBUG {
+		renderer.timers[.Setup] = time.since(t)
+		t = time.now()
+	}
+
 	// Upload shader data
 	wgpu.RenderPassEncoderSetBindGroup(rpass, 2, renderer.storage_bind_group)
 	wgpu_buffer_update(&renderer.shapes, renderer.queue)
@@ -363,6 +379,11 @@ present :: proc() {
 	// Create transient texture view
 	atlas_texture_view := wgpu.TextureCreateView(core.atlas_texture)
 	defer wgpu.TextureViewRelease(atlas_texture_view)
+
+	when ODIN_DEBUG {
+		renderer.timers[.Upload] = time.since(t)
+		t = time.now()
+	}
 
 	// Render draw calls
 	for &call in core.draw_calls {
@@ -442,4 +463,9 @@ present :: proc() {
 
 	wgpu.QueueSubmit(renderer.queue, {command_buffer})
 	wgpu.SurfacePresent(renderer.surface)
+
+	when ODIN_DEBUG {
+		renderer.timers[.Draw] = time.since(t)
+		t = time.now()
+	}
 }
