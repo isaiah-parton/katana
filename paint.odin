@@ -145,8 +145,6 @@ test_gpu_structs :: proc() {
 	assert(reflect.struct_field_by_name(Paint, "mode").offset == 72)
 }
 
-// Push a scissor shape to the stack, the SDF effect stacks.
-// If no shape is provided, only shape vertices will be clipped in `box`
 push_scissor :: proc(shape: Shape) {
 	shape := shape
 	shape.mode = .Intersection
@@ -160,12 +158,10 @@ push_scissor :: proc(shape: Shape) {
 	append(&core.renderer.shapes.data, shape)
 }
 
-// Pop the last scissor off the stack
 pop_scissor :: proc() {
 	pop_stack(&core.scissor_stack)
 }
 
-// Get the scissor at the top of the stack
 current_scissor :: proc() -> Maybe(Scissor) {
 	if !core.disable_scissor && core.scissor_stack.height > 0 {
 		return core.scissor_stack.items[core.scissor_stack.height - 1]
@@ -183,18 +179,15 @@ enable_scissor :: proc() {
 	core.disable_scissor = false
 }
 
-// Save the current scissor stack to another stack
 save_scissor :: proc() {
 	push_stack(&core.scissor_stack_stack, core.scissor_stack)
 	core.scissor_stack.height = 0
 }
 
-// Restore the last saved scissor stack from the scissor stack stack
 restore_scissor :: proc() {
 	core.scissor_stack = pop_stack(&core.scissor_stack_stack)
 }
 
-// Construct a linear gradient paint for the GPU
 make_linear_gradient :: proc(
 	start_point, end_point: [2]f32,
 	start_color, end_color: Color,
@@ -210,7 +203,6 @@ make_linear_gradient :: proc(
 	}
 }
 
-// Construct a radial gradient paint for the GPU
 make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -> Paint {
 	diff := linalg.abs(normalize_color(outer) - normalize_color(inner))
 	return Paint {
@@ -223,7 +215,6 @@ make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -
 	}
 }
 
-// Construct a radial gradient paint for the GPU
 make_wheel_gradient :: proc(center: [2]f32) -> Paint {
 	return Paint {
 		kind = .Wheel_Gradient,
@@ -243,14 +234,12 @@ make_tri_gradient :: proc(points: [3][2]f32, colors: [3]Color) -> Paint {
 	}
 }
 
-// Add a paint to the the shader buffer and return its index
 add_paint :: proc(paint: Paint) -> Paint_Index {
 	index := Paint_Index(len(core.renderer.paints.data))
 	append(&core.renderer.paints.data, paint)
 	return index
 }
 
-// Sets the default paint index for new shapes
 set_paint :: proc(paint: Paint_Option) {
 	core.paint = paint_index_from_option(paint)
 }
@@ -302,7 +291,6 @@ scale :: proc(factor: [2]f32) {
 	core.current_matrix^ *= linalg.matrix4_scale([3]f32{factor.x, factor.y, 1})
 }
 
-// Lets the user provide a custom sampler descriptor for the user texture
 set_sampler_descriptor :: proc(desc: wgpu.SamplerDescriptor) {
 	if core.current_draw_call == nil do return
 	if core.current_draw_call.user_sampler_desc != nil {
@@ -311,7 +299,6 @@ set_sampler_descriptor :: proc(desc: wgpu.SamplerDescriptor) {
 	core.current_draw_call.user_sampler_desc = desc
 }
 
-// Set the texture to be used for `draw_texture()`
 set_texture :: proc(texture: wgpu.Texture) {
 	core.user_texture = texture
 	if core.current_draw_call == nil do return
@@ -339,8 +326,16 @@ append_draw_call :: proc() {
 }
 
 set_draw_order :: proc(index: int) {
+	if core.current_draw_call != nil && core.current_draw_call.first_shape == len(core.renderer.shapes.data) {
+		core.current_draw_call.index = index
+		return
+	}
 	if core.draw_call_index != index {
 		core.draw_call_index = index
 		append_draw_call()
 	}
+}
+
+get_draw_order :: proc() -> int {
+	return core.draw_call_index
 }

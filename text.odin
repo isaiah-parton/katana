@@ -59,19 +59,6 @@ Text_Iterator :: struct {
 	next_index: int,
 }
 
-Text_Align_X :: enum {
-	Left,
-	Center,
-	Right,
-}
-
-Text_Align_Y :: enum {
-	Top,
-	Center,
-	Baseline,
-	Bottom,
-}
-
 Text_Options :: struct {
 	spacing:    f32,
 	max_width:  f32,
@@ -348,47 +335,22 @@ measure_text :: proc(
 fill_text_layout :: proc(
 	layout: Text_Layout,
 	origin: [2]f32,
-	align_x: Text_Align_X = .Left,
-	align_y: Text_Align_Y = .Top,
+	align: [2]f32 = 0,
 	paint: Paint_Option = nil,
 ) {
-	origin := origin
-	// Determine optimal pixel range for antialiasing
-	paint_index := paint_index_from_option(paint)
-	bias := glyph_bias_from_paint(paint)
-
-	switch align_x {
-	case .Left:
-	case .Center:
-		origin.x -= layout.size.x / 2
-	case .Right:
-		origin.x -= layout.size.x
-	}
-
-	switch align_y {
-	case .Top:
-	case .Center:
-		origin.y -= layout.size.y / 2
-	case .Baseline:
-		origin.y -= layout.font.ascend * layout.font_scale
-	case .Bottom:
-		origin.y -= layout.size.y
-	}
-
-	// Draw the glyphs
+	origin := origin - layout.size * align
 	for &glyph in layout.glyphs {
 		fill_glyph(
 			glyph,
 			layout.font_scale,
 			origin + glyph.offset,
-			paint = paint_index,
-			bias = bias,
+			paint = paint_index_from_option(paint),
+			bias = glyph_bias_from_paint(paint),
 		)
 	}
 }
 
 // A sort of gamma correction for text drawn in SRGB color space
-// TODO: Maybe move this to the GPU?
 glyph_bias_from_paint :: proc(paint: Paint_Option) -> f32 {
 	if core.renderer.surface_config.format != .RGBA8UnormSrgb &&
 	   core.renderer.surface_config.format != .BGRA8UnormSrgb {
@@ -405,18 +367,16 @@ fill_text :: proc(
 	size: f32,
 	origin: [2]f32,
 	font: Font = core.current_font,
-	align_x: Text_Align_X = .Left,
-	align_y: Text_Align_Y = .Top,
+	align: [2]f32 = 0,
 	options: Text_Options = DEFAULT_TEXT_OPTIONS,
 	paint: Paint_Option = nil,
 ) -> [2]f32 {
 	layout := make_text_layout(text, size, font = font, options = options)
-	fill_text_layout(layout, origin, align_x, align_y, paint)
+	fill_text_layout(layout, origin, align, paint)
 	return layout.size
 }
 
 make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) -> Shape {
-	// origin := origin + {0, glyph.descend * size}
 	return Shape {
 		kind = .Glyph,
 		tex_min = glyph.source.lo / core.atlas_size,

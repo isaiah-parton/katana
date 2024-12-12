@@ -70,12 +70,12 @@ wgpu_buffer_destroy :: proc(self: ^WGPU_Buffer($T)) {
 }
 
 Shader_Uniforms :: struct #align (8) {
-	size: [2]f32,
-	time: f32,
-	gamma: f32,
+	size:            [2]f32,
+	time:            f32,
+	gamma:           f32,
 	text_unit_range: f32,
-	text_in_bias: f32,
-	text_out_bias: f32,
+	text_in_bias:    f32,
+	text_out_bias:   f32,
 }
 
 Debug_Timer :: enum {
@@ -85,15 +85,12 @@ Debug_Timer :: enum {
 }
 
 Renderer :: struct {
-	// Infrastructure
 	device:                    wgpu.Device,
 	surface:                   wgpu.Surface,
 	pipeline:                  wgpu.RenderPipeline,
 	queue:                     wgpu.Queue,
-	// Settings
 	surface_config:            wgpu.SurfaceConfiguration,
 	device_limits:             wgpu.Limits,
-	// Resources
 	uniform_bind_group:        wgpu.BindGroup,
 	texture_bind_group:        wgpu.BindGroup,
 	storage_bind_group:        wgpu.BindGroup,
@@ -103,7 +100,7 @@ Renderer :: struct {
 	paints:                    WGPU_Buffer(Paint),
 	cvs:                       WGPU_Buffer([2]f32),
 	xforms:                    WGPU_Buffer(Matrix),
-	timers: [Debug_Timer]time.Duration,
+	timers:                    [Debug_Timer]time.Duration,
 }
 
 init_renderer_with_device_and_surface :: proc(
@@ -282,10 +279,10 @@ present :: proc() {
 	}
 
 	if core.current_draw_call != nil {
-		core.current_draw_call.shape_count = len(core.renderer.shapes.data) - core.current_draw_call.first_shape
+		core.current_draw_call.shape_count =
+			len(core.renderer.shapes.data) - core.current_draw_call.first_shape
 	}
 
-	// Sort draw calls by index
 	slice.sort_by(core.draw_calls[:], proc(i, j: Draw_Call) -> bool {
 		return i.index < j.index
 	})
@@ -309,14 +306,13 @@ present :: proc() {
 	surface_width := f32(wgpu.TextureGetWidth(surface_texture.texture))
 	surface_height := f32(wgpu.TextureGetHeight(surface_texture.texture))
 
-	// Create shader uniform
 	uniform := Shader_Uniforms {
-		size = {surface_width, surface_height},
-		time = f32(time.duration_seconds(time.since(core.start_time))),
-		gamma = 1.0,
+		size            = {surface_width, surface_height},
+		time            = f32(time.duration_seconds(time.since(core.start_time))),
+		gamma           = 1.0,
 		text_unit_range = 2.0 / core.atlas_size,
-		text_out_bias = 0.0,
-		text_in_bias = 0.0,
+		text_out_bias   = 0.0,
+		text_in_bias    = 0.0,
 	}
 
 	#partial switch renderer.surface_config.format {
@@ -327,7 +323,6 @@ present :: proc() {
 	surface_view := wgpu.TextureCreateView(surface_texture.texture, nil)
 	defer wgpu.TextureViewRelease(surface_view)
 
-	// Render pass
 	rpass := wgpu.CommandEncoderBeginRenderPass(
 		encoder,
 		&{
@@ -345,15 +340,12 @@ present :: proc() {
 		rpass,
 		0,
 		0,
-		// Quick fix to avoid a validation error
 		max(surface_width, 1),
 		max(surface_height, 1),
-		//
 		0,
 		0,
 	)
 
-	// Set bind groups
 	wgpu.RenderPassEncoderSetBindGroup(rpass, 0, renderer.uniform_bind_group)
 	wgpu.QueueWriteBuffer(
 		renderer.queue,
@@ -368,7 +360,6 @@ present :: proc() {
 		t = time.now()
 	}
 
-	// Upload shader data
 	wgpu.RenderPassEncoderSetBindGroup(rpass, 2, renderer.storage_bind_group)
 	wgpu_buffer_update(&renderer.shapes, renderer.queue)
 	wgpu_buffer_update(&renderer.paints, renderer.queue)
@@ -376,7 +367,6 @@ present :: proc() {
 	wgpu_buffer_update(&renderer.xforms, renderer.queue)
 	wgpu.QueueSubmit(renderer.queue, {})
 
-	// Create transient texture view
 	atlas_texture_view := wgpu.TextureCreateView(core.atlas_texture)
 	defer wgpu.TextureViewRelease(atlas_texture_view)
 
@@ -385,14 +375,10 @@ present :: proc() {
 		t = time.now()
 	}
 
-	// Render draw calls
 	for &call in core.draw_calls {
-		// Redundancy checks
 		if call.shape_count == 0 {
 			continue
 		}
-
-		// User sampler descriptor
 		user_sampler_desc :=
 			call.user_sampler_desc.? or_else wgpu.SamplerDescriptor {
 				magFilter = .Linear,
@@ -403,7 +389,6 @@ present :: proc() {
 				maxAnisotropy = 1,
 			}
 
-		// Create view for user texture
 		user_texture_view: wgpu.TextureView = atlas_texture_view
 		defer if user_texture_view != atlas_texture_view do wgpu.TextureViewRelease(user_texture_view)
 		if user_texture, ok := call.user_texture.?; ok {
@@ -413,7 +398,6 @@ present :: proc() {
 			}
 		}
 
-		// Create transient sampler
 		atlas_sampler := wgpu.DeviceCreateSampler(
 			renderer.device,
 			&{
@@ -426,11 +410,9 @@ present :: proc() {
 		)
 		defer wgpu.SamplerRelease(atlas_sampler)
 
-		// Create transient sampler
 		user_sampler := wgpu.DeviceCreateSampler(renderer.device, &user_sampler_desc)
 		defer wgpu.SamplerRelease(user_sampler)
 
-		// Create transient bind group
 		texture_bind_group := wgpu.DeviceCreateBindGroup(
 			renderer.device,
 			&{
@@ -449,10 +431,8 @@ present :: proc() {
 		)
 		defer wgpu.BindGroupRelease(texture_bind_group)
 
-		// Set bind groups
 		wgpu.RenderPassEncoderSetBindGroup(rpass, 1, texture_bind_group)
 
-		// Draw elements
 		wgpu.RenderPassEncoderDraw(rpass, 4, u32(call.shape_count), 0, u32(call.first_shape))
 	}
 	wgpu.RenderPassEncoderEnd(rpass)
