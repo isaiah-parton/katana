@@ -545,9 +545,9 @@ fill_box :: proc(box: Box, radius: [4]f32 = {}, paint: Paint_Option = nil) {
 	add_shape(shape)
 }
 
-stroke_box :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option) {
+stroke_box :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option, outline: Shape_Outline = .Inner_Stroke) {
 	shape := make_box(box, radius)
-	shape.outline = .Inner_Stroke
+	shape.outline = outline
 	shape.width = width
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)

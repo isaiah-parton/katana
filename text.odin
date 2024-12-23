@@ -68,7 +68,7 @@ Text_Options :: struct {
 }
 
 DEFAULT_TEXT_OPTIONS :: Text_Options {
-	spacing    = 1,
+	spacing    = 0,
 	max_width  = math.F32_MAX,
 	max_height = math.F32_MAX,
 	wrap       = .None,

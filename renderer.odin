@@ -379,6 +379,7 @@ present :: proc() {
 		if call.shape_count == 0 {
 			continue
 		}
+
 		user_sampler_desc :=
 			call.user_sampler_desc.? or_else wgpu.SamplerDescriptor {
 				magFilter = .Linear,
@@ -432,9 +433,9 @@ present :: proc() {
 		defer wgpu.BindGroupRelease(texture_bind_group)
 
 		wgpu.RenderPassEncoderSetBindGroup(rpass, 1, texture_bind_group)
-
 		wgpu.RenderPassEncoderDraw(rpass, 4, u32(call.shape_count), 0, u32(call.first_shape))
 	}
+
 	wgpu.RenderPassEncoderEnd(rpass)
 	wgpu.RenderPassEncoderRelease(rpass)
 
@@ -446,6 +447,5 @@ present :: proc() {
 
 	when ODIN_DEBUG {
 		renderer.timers[.Draw] = time.since(t)
-		t = time.now()
 	}
 }

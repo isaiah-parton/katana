@@ -10,40 +10,32 @@ core: Core
 @(private)
 Core :: struct {
 	renderer:             Renderer,
-	// Timing
 	start_time:           time.Time,
 	frame_time:           time.Time,
-	frames_this_second:		int,
-	last_second: 					time.Time,
-	delta_time:						f32,
-	fps:									f32,
-	// Text layout
+	frames_this_second:   int,
+	last_second:          time.Time,
+	delta_time:           f32,
+	fps:                  f32,
 	text_glyphs:          [dynamic]Text_Glyph,
 	text_lines:           [dynamic]Text_Line,
-	// Transform matrices
 	matrix_stack:         Stack(Matrix, 128),
 	current_matrix:       ^Matrix,
 	last_matrix:          Matrix,
 	matrix_index:         u32,
-	default_font: Font,
-	current_font: Font,
+	default_font:         Font,
+	current_font:         Font,
 	fallback_font:        Maybe(Font),
-	// Scissors are capped at 8 for the sake of sanity
 	scissor_stack:        Stack(Scissor, 8),
-	scissor_stack_stack: 	Stack(Stack(Scissor, 8), 8),
-	disable_scissor: bool,
-	// Draw calls for ordered drawing
+	scissor_stack_stack:  Stack(Stack(Scissor, 8), 8),
+	disable_scissor:      bool,
 	draw_calls:           [dynamic]Draw_Call,
 	draw_call_index:      int,
 	current_draw_call:    ^Draw_Call,
-	// User defined texture
 	user_texture:         wgpu.Texture,
-	// Atlas for fonts and icons
 	atlas_texture:        wgpu.Texture,
 	atlas_size:           f32,
 	atlas_offset:         [2]f32,
 	atlas_content_height: f32,
-	// Current draw state
 	paint:                Paint_Index,
 	shape:                u32,
 	xform:                u32,
@@ -51,38 +43,41 @@ Core :: struct {
 	path_point:           [2]f32,
 }
 
+draw_call_count :: proc() -> int {
+	return len(core.draw_calls)
+}
+
 renderer :: proc() -> ^Renderer {
 	return &core.renderer
 }
 
 request_adapter_options :: proc() -> wgpu.RequestAdapterOptions {
-	return wgpu.RequestAdapterOptions{
-		powerPreference = .LowPower,
-	}
+	return wgpu.RequestAdapterOptions{powerPreference = .LowPower}
 }
 
 device_descriptor :: proc() -> wgpu.DeviceDescriptor {
-	return wgpu.DeviceDescriptor{
+	return wgpu.DeviceDescriptor {
 		requiredFeatureCount = 1,
-		requiredFeatures = ([^]wgpu.FeatureName)(
-			&[?]wgpu.FeatureName{.VertexWritableStorage},
-		),
+		requiredFeatures = ([^]wgpu.FeatureName)(&[?]wgpu.FeatureName{.VertexWritableStorage}),
 	}
 }
 
-surface_configuration :: proc(device: wgpu.Device, adapter: wgpu.Adapter, surface: wgpu.Surface) -> wgpu.SurfaceConfiguration {
+surface_configuration :: proc(
+	device: wgpu.Device,
+	adapter: wgpu.Adapter,
+	surface: wgpu.Surface,
+) -> wgpu.SurfaceConfiguration {
 	caps := wgpu.SurfaceGetCapabilities(surface, adapter)
-	core.renderer.surface_config = wgpu.SurfaceConfiguration{
+	core.renderer.surface_config = wgpu.SurfaceConfiguration {
 		presentMode = caps.presentModes[0],
 		alphaMode   = caps.alphaModes[0],
 		device      = device,
-		format      = .BGRA8Unorm,//caps.formats[0],
+		format      = .BGRA8Unorm, //caps.formats[0],
 		usage       = {.RenderAttachment},
 	}
 	return core.renderer.surface_config
 }
 
-// Call before using vgo
 start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 	init_renderer_with_device_and_surface(&core.renderer, device, surface)
 
@@ -105,7 +100,6 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 	core.frame_time = core.start_time
 }
 
-// Call when you're done using vgo
 shutdown :: proc() {
 	destroy_font(&core.default_font)
 	delete(core.draw_calls)
@@ -145,6 +139,7 @@ reset_drawing :: proc() {
 }
 
 new_frame :: proc() {
+	t := time.now()
 	core.delta_time = f32(time.duration_seconds(time.since(core.frame_time)))
 	core.frame_time = time.now()
 
@@ -187,16 +182,10 @@ copy_image_to_atlas :: proc(data: rawptr, width, height: int) -> Box {
 	box := get_atlas_box([2]f32{f32(width), f32(height)})
 	wgpu.QueueWriteTexture(
 		core.renderer.queue,
-		&{
-			texture = core.atlas_texture,
-			origin = {x = u32(box.lo.x), y = u32(box.lo.y)},
-		},
+		&{texture = core.atlas_texture, origin = {x = u32(box.lo.x), y = u32(box.lo.y)}},
 		data,
 		uint(width * height * 4),
-		&{
-			bytesPerRow = u32(box.hi.x - box.lo.x) * 4,
-			rowsPerImage = u32(box.hi.y - box.lo.y),
-		},
+		&{bytesPerRow = u32(box.hi.x - box.lo.x) * 4, rowsPerImage = u32(box.hi.y - box.lo.y)},
 		&{
 			width = u32(box.hi.x - box.lo.x),
 			height = u32(box.hi.y - box.lo.y),
@@ -221,7 +210,8 @@ push_stack :: proc(stack: ^Stack($T, $N), item: T) -> bool {
 	return true
 }
 
-pop_stack :: proc(stack: ^Stack($T, $N)) -> T {
+pop_stack :: proc(stack: ^Stack($T, $N), loc := #caller_location) -> T {
+	assert(stack.height > 0, loc = loc)
 	stack.height -= 1
 	return stack.items[stack.height]
 }
