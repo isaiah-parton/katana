@@ -156,6 +156,9 @@ fn sd_line(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 	let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
 	return length(pa - ba * h) + 1.0;
 }
+fn cro(a: vec2<f32>, b: vec2<f32>) -> f32 {
+	return a.x * b.y - a.y * b.x;
+}
 fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let a = B - A;
   let b = A - 2.0 * B + C;
@@ -186,7 +189,60 @@ fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
     // the third root cannot be the closest
     // res = min(res,dot2(d+(c+b*t.z)*t.z));
   }
-  return sqrt( res );
+  return sqrt(res);
+}
+fn cos_acos_3(X: f32) -> f32 {
+	var x = sqrt(0.5 + 0.5 * X);
+	return x * (x * (x * ((x * -0.008972) + 0.039071) - 0.107074) + 0.576975) + 0.5;
+}
+fn sd_signed_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
+	let a = B - A;
+	let b = A - 2.0 * B + C;
+	let c = a * 2.0;
+	let d = A - pos;
+	let kk = 1.0 / dot(b, b);
+	let kx = kk * dot(a, b);
+	let ky = kk * (2.0 * dot(a, a) + dot(d, b)) / 3.0;
+	let kz = kk * dot(d, a);
+	var res = 0.0;
+	var sgn = 0.0;
+	let p = ky - kx * kx;
+	let p3 = p * p * p;
+	let q = kx * (2.0 * kx * kx + -3.0 * ky) + kz;
+	var h = q * q + 4.0 * p3;
+	if (h >= 0.0) {
+		h = sqrt(h);
+		var x = (vec2<f32>(h, -h) - q) / 2.0;
+		// if (abs(p) < 0.001) {
+		// 	let k = p3 / q;
+		// 	x = vec2<f32>(k, -k - q);
+		// }
+		let uv = sign(x) * pow(abs(x), vec2(1.0 / 3.0));
+		var t = uv.x + uv.y;
+		t -= (t * (t * t + 3.0 * p) + q) / (3.0 * t * t + 3.0 * p);
+		t = clamp(t - kx, 0.0, 1.0);
+		let w = d + (c + b * t) * t;
+		res = dot2(w);
+		sgn = cro(c + 2.0 * b * t, w);
+	} else {
+		let z = sqrt(-p);
+		let m = cos_acos_3(q / (p * z * 2.0));
+		var n = sqrt(1.0 - m * m);
+		n *= sqrt(3.0);
+		let t = clamp(vec3<f32>(m + m, -n - m, n - m) * z - kx, vec3<f32>(0.0), vec3<f32>(1.0));
+		let qx = d + (c + b * t.x) * t.x;
+		let dx = dot2(qx);
+		let qy = d + (c + b + t.y) * t.y;
+		let dy = dot2(qy);
+		if (dx < dy) {
+			res = dx;
+			sgn = cro(a + b * t.x, qx);
+		} else {
+			res = dy;
+			sgn = cro(a + b * t.y, qy);
+		}
+	}
+	return sqrt(res) * sign(sgn);
 }
 fn sd_line_test(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> f32 {
 	let dir = normalize(B - A);
@@ -424,6 +480,10 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     // Line segment
     case 10u: {
     	d = sd_line(p, shape.cv0, shape.cv1) - shape.width;
+    }
+    // Signed bezier
+    case 11u: {
+    	d = sd_signed_bezier(p, shape.cv0, shape.cv1, shape.cv2) * shape.radius.x;
     }
 		default: {}
 	}

@@ -38,9 +38,12 @@ main :: proc() {
 	) {
 		context = runtime.default_context()
 		switch status {
-		case .Success: device = _device
-		case .Error: fmt.panicf("Unable to aquire device: %s", message)
-		case .Unknown: panic("Unknown error")
+		case .Success:
+			device = _device
+		case .Error:
+			fmt.panicf("Unable to aquire device: %s", message)
+		case .Unknown:
+			panic("Unknown error")
 		}
 	}
 
@@ -58,14 +61,13 @@ main :: proc() {
 			fmt.printfln("Using %v on %v", info.backendType, info.description)
 
 			descriptor := vgo.device_descriptor()
-			wgpu.AdapterRequestDevice(
-				adapter,
-				&descriptor,
-				on_device,
-			)
-		case .Error: fmt.panicf("Unable to acquire adapter: %s", message)
-		case .Unavailable: panic("Adapter unavailable")
-		case .Unknown: panic("Unknown error")
+			wgpu.AdapterRequestDevice(adapter, &descriptor, on_device)
+		case .Error:
+			fmt.panicf("Unable to acquire adapter: %s", message)
+		case .Unavailable:
+			panic("Adapter unavailable")
+		case .Unknown:
+			panic("Unknown error")
 		}
 	}
 
@@ -90,10 +92,7 @@ main :: proc() {
 		"fonts/KumbhSans-Regular.json",
 	)
 	regular_font := light_font
-	icon_font, _ := vgo.load_font_from_files(
-		"fonts/remixicon.png",
-		"fonts/remixicon.json",
-	)
+	icon_font, _ := vgo.load_font_from_files("fonts/remixicon.png", "fonts/remixicon.json")
 
 	//
 	limit_fps: bool = true
@@ -392,9 +391,33 @@ main :: proc() {
 			radius1 := f32(250) + math.cos(animation_time + 1) * 50
 			radius2 := f32(250) + math.cos(animation_time + 2) * 50
 
-			vgo.fill_box(box, paint = vgo.make_radial_gradient(center0, radius0, vgo.Color{255, 0, 0, u8(math.round(f32(255.0 / 1.5)))}, vgo.Color{255, 0, 0, 0}))
-			vgo.fill_box(box, paint = vgo.make_radial_gradient(center1, radius1, vgo.Color{0, 0, 255, u8(math.round(f32(255.0 / 1.5)))}, vgo.Color{0, 0, 255, 0}))
-			vgo.fill_box(box, paint = vgo.make_radial_gradient(center2, radius2, vgo.Color{0, 255, 0, u8(math.round(f32(255.0 / 1.5)))}, vgo.Color{0, 255, 0, 0}))
+			vgo.fill_box(
+				box,
+				paint = vgo.make_radial_gradient(
+					center0,
+					radius0,
+					vgo.Color{255, 0, 0, u8(math.round(f32(255.0 / 1.5)))},
+					vgo.Color{255, 0, 0, 0},
+				),
+			)
+			vgo.fill_box(
+				box,
+				paint = vgo.make_radial_gradient(
+					center1,
+					radius1,
+					vgo.Color{0, 0, 255, u8(math.round(f32(255.0 / 1.5)))},
+					vgo.Color{0, 0, 255, 0},
+				),
+			)
+			vgo.fill_box(
+				box,
+				paint = vgo.make_radial_gradient(
+					center2,
+					radius2,
+					vgo.Color{0, 255, 0, u8(math.round(f32(255.0 / 1.5)))},
+					vgo.Color{0, 255, 0, 0},
+				),
+			)
 		case 2:
 			{
 				text := "Rotating text!"
@@ -438,10 +461,7 @@ main :: proc() {
 			box := layout.bounds
 			left_box := vgo.Box{box.lo, {(box.lo.x + box.hi.x) / 2, box.hi.y}}
 			right_box := vgo.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
-			vgo.fill_box(
-				left_box,
-				paint = vgo.WHITE,
-			)
+			vgo.fill_box(left_box, paint = vgo.WHITE)
 			left_box.lo += 20
 			right_box.lo += 20
 			left_box.hi -= 20
@@ -454,21 +474,24 @@ main :: proc() {
 					size,
 					left_box.lo + {0, offset},
 					font = light_font,
-					options = vgo.text_options(max_width = left_box.hi.x - left_box.lo.x, wrap = .Word),
+					options = vgo.text_options(
+						max_width = left_box.hi.x - left_box.lo.x,
+						wrap = .Word,
+					),
 					paint = vgo.BLACK,
 				)
-				offset += vgo.fill_text(
-					LOREM_IPSUM,
-					size,
-					right_box.lo + {0, offset},
-					font = light_font,
-					options = vgo.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word),
-					paint = vgo.WHITE,
-				).y + 10
+				offset +=
+					vgo.fill_text(LOREM_IPSUM, size, right_box.lo + {0, offset}, font = light_font, options = vgo.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word), paint = vgo.WHITE).y +
+					10
 			}
 		case 4:
 			max_width := f32(400)
-			text_layout := vgo.make_text_layout(LOREM_IPSUM, 24, regular_font, vgo.text_options(wrap = .Word, justify = .Center, max_width = max_width))
+			text_layout := vgo.make_text_layout(
+				LOREM_IPSUM,
+				24,
+				regular_font,
+				vgo.text_options(wrap = .Word, justify = .Center, max_width = max_width),
+			)
 			origin := canvas_size / 2
 			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.GRAY(0.1))
 			vgo.fill_text_layout(text_layout, origin, paint = vgo.fade(vgo.WHITE, 0.5))

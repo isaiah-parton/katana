@@ -195,7 +195,7 @@ make_linear_gradient :: proc(
 	diff := linalg.abs(normalize_color(end_color) - normalize_color(start_color))
 	return Paint {
 		kind = .Linear_Gradient,
-		noise = (linalg.length(end_point - start_point) / 255.0) * 0.01,
+		noise = (linalg.length(end_point - start_point) / 255.0) * 0.0025,
 		cv0 = start_point,
 		cv1 = end_point,
 		col0 = normalize_color(start_color),

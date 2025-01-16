@@ -19,6 +19,7 @@ Shape_Kind :: enum u32 {
 	Polygon,
 	Glyph,
 	Line_Segment,
+	Signed_Bezier,
 }
 
 Shape_Outline :: enum u32 {
@@ -69,9 +70,6 @@ box_bottom_left :: proc(box: Box) -> [2]f32 {
 bot_top_right :: proc(box: Box) -> [2]f32 {
 	return {box.hi.x, box.lo.y}
 }
-
-// Constructors for GPU shapes
-// ---
 
 make_box :: proc(box: Box, radius: [4]f32 = {}) -> Shape {
 	return Shape{kind = .Box, radius = radius, cv0 = box.lo, cv1 = box.hi}
@@ -195,18 +193,18 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 	box: Box = {math.F32_MAX, 0}
 	switch shape.kind {
 	case .None:
-	case .Glyph:
+	case .Glyph, .Signed_Bezier:
 		box.lo = shape.quad_min
 		box.hi = shape.quad_max
 	case .Line_Segment:
 		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width
 		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width
 	case .Box:
-		box.lo = shape.cv0
-		box.hi = shape.cv1
+		box.lo = shape.cv0 - 1
+		box.hi = shape.cv1 + 1
 	case .Circle:
-		box.lo = shape.cv0 - shape.radius[0]
-		box.hi = shape.cv0 + shape.radius[0]
+		box.lo = shape.cv0 - shape.radius[0] - 1
+		box.hi = shape.cv0 + shape.radius[0] + 1
 	case .Path:
 		for i in 0 ..< shape.count * 3 {
 			j := shape.start + i
@@ -235,7 +233,7 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.hi = shape.cv0 + shape.radius[0]
 	}
 
-	if shape.kind != .Glyph {
+	if shape.kind != .Glyph && shape.kind != .Signed_Bezier {
 		switch shape.outline {
 		case .None:
 		case .Inner_Stroke:
@@ -246,9 +244,6 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 			box.lo -= shape.width / 2
 			box.hi += shape.width / 2
 		}
-
-		box.lo -= 1
-		box.hi += 1
 	}
 
 	return box

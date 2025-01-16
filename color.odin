@@ -106,7 +106,7 @@ color_from_hsva :: proc(hsva: [4]f32) -> Color {
 	k = clamp(min(t, k), 0, 1)
 	b = hsva.z - hsva.z * hsva.y * k
 
-	return {u8(r * 255.0), u8(g * 255.0), u8(b * 255.0), u8(hsva.a * 255.0)}
+	return {u8(r * 255.0), u8(g * 255.0), u8(b * 255.0), u8(hsva.w * 255.0)}
 }
 
 hsl_from_norm_rgb :: proc(rgb: [3]f32) -> [3]f32 {
