@@ -79,7 +79,7 @@ make_circle :: proc(center: [2]f32, radius: f32) -> Shape {
 	return Shape{kind = .Circle, cv0 = center, radius = radius}
 }
 
-make_arc :: proc(center: [2]f32, from, to, inner, outer: f32) -> Shape {
+make_arc :: proc(center: [2]f32, from, to, inner, outer: f32, squared: bool = false) -> Shape {
 	from, to := from, to
 	// be nice
 	if from > to do from, to = to, from
@@ -91,6 +91,7 @@ make_arc :: proc(center: [2]f32, from, to, inner, outer: f32) -> Shape {
 		cv0 = center,
 		cv1 = [2]f32{math.sin(th0), math.cos(th0)},
 		cv2 = [2]f32{math.sin(th1), math.cos(th1)},
+		start = u32(squared),
 		radius = {0 = inner, 1 = width},
 	}
 }
@@ -504,8 +505,8 @@ stroke_pie :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Pai
 	add_shape(shape)
 }
 
-arc :: proc(center: [2]f32, from, to: f32, radius, width: f32, paint: Paint_Option = nil) {
-	shape := make_arc(center, from, to, radius, width)
+arc :: proc(center: [2]f32, from, to: f32, inner, outer: f32, square: bool = false, paint: Paint_Option = nil) {
+	shape := make_arc(center, from, to, inner, outer, square)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
 }
@@ -567,7 +568,7 @@ spinner :: proc(center: [2]f32, radius: f32, color: Color) {
 
 	width := radius * 0.25
 
-	arc(center, from, to, radius - width, radius, color)
+	arc(center, from, to, radius - width, radius, paint = color)
 }
 
 arrow :: proc(pos: [2]f32, scale: f32, angle: f32 = 0, paint: Paint_Option = nil) {

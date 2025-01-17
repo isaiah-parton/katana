@@ -156,7 +156,7 @@ main :: proc() {
 
 		vgo.new_frame()
 
-		GRADIENT_COLORS :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
+		GRADIENT_style().color :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
 
 		Layout :: struct {
 			bounds, box: vgo.Box,
@@ -200,8 +200,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -217,8 +217,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -244,8 +244,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -283,8 +283,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -305,8 +305,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -327,8 +327,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -348,8 +348,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}
@@ -375,8 +375,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						-radius,
 						radius,
-						GRADIENT_COLORS[0],
-						GRADIENT_COLORS[1],
+						GRADIENT_style().color[0],
+						GRADIENT_style().color[1],
 					),
 				)
 			}

@@ -8,7 +8,7 @@ import "core:strings"
 
 Color :: [4]u8
 
-// Default colors
+// Default style().color
 WHITE :: Color(255)
 BLACK :: Color{0, 0, 0, 255}
 GRAY :: proc(shade: f32) -> Color {return{
@@ -142,13 +142,12 @@ mix :: proc(time: f32, colors: ..Color) -> Color {
 			i := int(math.floor(time))
 			t := time - f32(i)
 			return(
-				colors[i] +
-				{
+				colors[i] + {
 						u8((f32(colors[i + 1].r) - f32(colors[i].r)) * t),
 						u8((f32(colors[i + 1].g) - f32(colors[i].g)) * t),
 						u8((f32(colors[i + 1].b) - f32(colors[i].b)) * t),
 						u8((f32(colors[i + 1].a) - f32(colors[i].a)) * t),
-					} \
+				}\
 			)
 		}
 	}

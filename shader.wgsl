@@ -109,14 +109,14 @@ fn sd_pie(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, r: f32) -> f32 {
 	pp.x = abs(pp.x);
 	let l = length(pp) - r;
 	let m = length(pp - scb * clamp(dot(pp, scb), 0.0, r));
-	return max(l, m * sign(scb.y * pp.x - scb.x * pp.y)) + 1;
+	return max(l, m * sign(scb.y * pp.x - scb.x * pp.y)) + 0.5;
 }
 fn sd_pie2(p: vec2<f32>, n: vec2<f32>) -> f32 {
 	return abs(p).x * n.y + p.y * n.x;
 }
 fn sd_arc_square(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, radius: f32, width: f32) -> f32 {
   let pp = p * mat2x2<f32>(sca,vec2<f32>(-sca.y,sca.x));
-  return sd_subtract(sd_pie2(pp, vec2<f32>(scb.x, -scb.y)), abs(sd_circle(pp, radius)) - width);
+  return sd_subtract(sd_pie2(pp, vec2<f32>(scb.x, -scb.y)), abs(sd_circle(pp, radius)) - width) + 1;
 }
 fn sd_arc(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, ra: f32, rb: f32) -> f32 {
 	var pp = p * mat2x2<f32>(vec2<f32>(sca.x, sca.y), vec2<f32>(-sca.y, sca.x));
@@ -399,7 +399,11 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 		}
 		// Arc
 		case 4u: {
-			d = sd_arc(p - shape.cv0, shape.cv1, shape.cv2, shape.radius[0], shape.radius[1]);
+			if (shape.start > 0u) {
+				d = sd_arc_square(p - shape.cv0, shape.cv1, shape.cv2, shape.radius[0], shape.radius[1]);
+			} else {
+				d = sd_arc(p - shape.cv0, shape.cv1, shape.cv2, shape.radius[0], shape.radius[1]);
+			}
 		}
 		// Bezier
 		case 5u: {
