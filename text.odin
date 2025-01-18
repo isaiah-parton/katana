@@ -143,7 +143,7 @@ make_text_layout :: proc(
 			hovered_rune = -1
 			closest = math.F32_MAX
 
-			line.glyph_range[1] = len(core.text_glyphs)
+			line.glyph_range[1] = len(core.text_glyphs) - int(!iter.at_end)
 			line.size = {iter.line_width, font.line_height * size}
 			line_offset: [2]f32
 
@@ -161,7 +161,7 @@ make_text_layout :: proc(
 			line.offset += line_offset
 
 			new_line := Text_Line {
-				glyph_range = {0 = line.glyph_range[1]},
+				glyph_range = {0 = len(core.text_glyphs)},
 				offset = iter.offset,
 			}
 

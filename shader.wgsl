@@ -154,7 +154,7 @@ fn sd_line(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 	let pa = p - a;
 	let ba = b - a;
 	let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-	return length(pa - ba * h) + 1.0;
+	return length(pa - ba * h) + 0.5;
 }
 fn cro(a: vec2<f32>, b: vec2<f32>) -> f32 {
 	return a.x * b.y - a.y * b.x;

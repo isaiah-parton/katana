@@ -198,8 +198,8 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo = shape.quad_min
 		box.hi = shape.quad_max
 	case .Line_Segment:
-		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width
-		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width
+		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width - 1
+		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width + 1
 	case .Box:
 		box.lo = shape.cv0 - 1
 		box.hi = shape.cv1 + 1
@@ -591,7 +591,7 @@ arrow :: proc(pos: [2]f32, scale: f32, angle: f32 = 0, paint: Paint_Option = nil
 check :: proc(pos: [2]f32, scale: f32, color: Color) {
 	lines(
 		{pos + {-1, -0.047} * scale, pos + {-0.333, 0.619} * scale, pos + {1, -0.713} * scale},
-		2,
+		1,
 		paint = color,
 	)
 }
