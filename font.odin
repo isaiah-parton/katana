@@ -25,6 +25,7 @@ Font :: struct {
 	first_rune:            rune,
 	// em_size:               f32,
 	size:                  f32,
+	space_advance:                  f32,
 	ascend:                f32,
 	descend:               f32,
 	// underline_y:           f32,
@@ -95,6 +96,9 @@ load_font_from_slices :: proc(image_data, json_data: []u8) -> (font: Font, ok: b
 		code := rune(i32(glyph_obj["unicode"].(json.Float) or_return))
 		glyph := Font_Glyph {
 			advance = f32(glyph_obj["advance"].(json.Float) or_return),
+		}
+		if code == ' ' {
+			font.space_advance = glyph.advance
 		}
 		// left, bottom, right, top
 		if plane_bounds_obj, ok := glyph_obj["planeBounds"].(json.Object); ok {
