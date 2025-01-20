@@ -282,9 +282,13 @@ paint_index_from_option :: proc(option: Paint_Option) -> Paint_Index {
 	case Paint:
 		return add_paint(v)
 	case Color:
-		return add_paint(Paint{kind = .Solid_Color, col0 = normalize_color(v)})
+		return add_paint(Paint{kind = .Solid_Color, col0 = normalize_color(v) * {1.0, 1.0, 1.0, core.opacity}})
 	}
 	return core.paint
+}
+
+set_opacity :: proc(opacity: f32) {
+	core.opacity = opacity
 }
 
 // add_shape_uv :: proc(shape_index: u32, source: Box, color: Color) {
@@ -437,8 +441,8 @@ line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
 	add_shape(
 		Shape {
 			kind = .Line_Segment,
-			cv0 = a,
-			cv1 = b,
+			cv0 = a + 0.5,
+			cv1 = b + 0.5,
 			width = width - 0.5,
 			paint = paint_index_from_option(paint),
 		},

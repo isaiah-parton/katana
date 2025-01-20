@@ -28,6 +28,7 @@ Core :: struct {
 	scissor_stack:        Stack(Scissor, 8),
 	scissor_stack_stack:  Stack(Stack(Scissor, 8), 8),
 	disable_scissor:      bool,
+	opacity: f32,
 	draw_calls:           [dynamic]Draw_Call,
 	draw_call_index:      int,
 	current_draw_call:    ^Draw_Call,
@@ -41,6 +42,7 @@ Core :: struct {
 	xform:                u32,
 	path_start:           u32,
 	path_point:           [2]f32,
+	affector: Maybe(u32),
 }
 
 draw_call_count :: proc() -> int {
@@ -134,6 +136,7 @@ reset_drawing :: proc() {
 	core.matrix_stack.height = 0
 	core.last_matrix = {}
 	core.matrix_index = 0
+	core.opacity = 1
 
 	push_matrix()
 }
