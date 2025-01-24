@@ -6,6 +6,7 @@ import "core:math"
 import "core:math/ease"
 import "core:math/linalg"
 import "core:time"
+import "vendor:stb/image"
 import "vendor:sdl2"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl2glue"
@@ -100,11 +101,20 @@ main :: proc() {
 	enable_glyph_gamma_correction: bool = true
 	animation_time: f32 = 0.1
 	page: int
+
 	PAGE_COUNT :: 5
 	mouse_point: [2]f32
 	canvas_size: [2]f32 = {f32(window_width), f32(window_height)}
 	frame_time: f32
 	last_frame_time: time.Time
+
+	image_source: vgo.Box
+	image_width, image_height, image_channels: i32
+	image_data := image.load("image.png", &image_width, &image_height, &image_channels, 4)
+	if image_data != nil {
+		image_source = vgo.copy_image_to_atlas(image_data, int(image_width), int(image_height))
+		fmt.println(image_source)
+	}
 
 	Verlet_Body :: struct {
 		pos, prev_pos, acc: [2]f32,
@@ -156,7 +166,7 @@ main :: proc() {
 
 		vgo.new_frame()
 
-		GRADIENT_style().color :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
+		GRADIENT_COLORS :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
 
 		Layout :: struct {
 			bounds, box: vgo.Box,
@@ -200,8 +210,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}
@@ -217,8 +227,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}
@@ -244,8 +254,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}
@@ -279,13 +289,15 @@ main :: proc() {
 						)
 					}
 				}
+				container_center := (container.lo + container.hi) / 2
 				vgo.fill_path(
-					vgo.make_linear_gradient(
-						center - radius,
-						center + radius,
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
-					),
+					vgo.make_atlas_sample(image_source, {container_center - radius, container_center + radius}, vgo.WHITE)
+					// vgo.make_linear_gradient(
+					// 	center - radius,
+					// 	center + radius,
+					// 	GRADIENT_COLORS[0],
+					// 	GRADIENT_COLORS[1],
+					// ),
 				)
 			}
 
@@ -302,11 +314,11 @@ main :: proc() {
 					t + math.TAU * 0.75,
 					radius - 4,
 					radius,
-					vgo.make_linear_gradient(
+					paint = vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}
@@ -327,8 +339,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}
@@ -348,8 +360,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						center - radius,
 						center + radius,
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}
@@ -375,8 +387,8 @@ main :: proc() {
 					vgo.make_linear_gradient(
 						-radius,
 						radius,
-						GRADIENT_style().color[0],
-						GRADIENT_style().color[1],
+						GRADIENT_COLORS[0],
+						GRADIENT_COLORS[1],
 					),
 				)
 			}

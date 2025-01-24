@@ -65,6 +65,7 @@ Text_Options :: struct {
 	max_height: f32,
 	wrap:       Text_Wrap,
 	justify:    Text_Justify,
+	obfuscated: bool,
 }
 
 DEFAULT_TEXT_OPTIONS :: Text_Options {
@@ -90,6 +91,10 @@ text_options :: proc(
 		wrap = wrap,
 		justify = justify,
 	}
+}
+
+text_layout_is_empty :: proc(layout: ^Text_Layout) -> bool {
+	return len(layout.glyphs) == 0
 }
 
 make_text_layout :: proc(
@@ -279,6 +284,9 @@ iterate_text :: proc(
 	iter.index = iter.next_index
 	bytes: int
 	iter.char, bytes = utf8.decode_rune(text[iter.index:])
+	if options.obfuscated {
+		iter.char = '*'
+	}
 	iter.next_index += bytes
 	iter.glyph = find_font_glyph(font, iter.char)
 

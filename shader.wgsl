@@ -45,6 +45,7 @@ struct Paint {
 	cv0: vec2<f32>,
 	cv1: vec2<f32>,
 	cv2: vec2<f32>,
+	cv3: vec2<f32>,
 	col0: vec4<f32>,
 	col1: vec4<f32>,
 	col2: vec4<f32>,
@@ -671,7 +672,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			}
 			// Atlas sampler
 			case 2u: {
-				out = textureSample(atlas_tex, atlas_samp, in.uv) * paint.col0;
+				out = textureSample(atlas_tex, atlas_samp, paint.cv0 + ((in.pos.xy - paint.cv2) / paint.cv3) * paint.cv1) * paint.col0;
 			}
 			// User texture sampler
 			case 3u: {

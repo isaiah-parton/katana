@@ -84,6 +84,7 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 	init_renderer_with_device_and_surface(&core.renderer, device, surface)
 
 	core.atlas_size = f32(min(core.renderer.device_limits.maxTextureDimension2D, 8196))
+	atlas_depth := f32(min(core.renderer.device_limits.maxTextureDimension3D, 4))
 	core.atlas_texture = wgpu.DeviceCreateTexture(
 		core.renderer.device,
 		&{

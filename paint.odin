@@ -46,22 +46,14 @@ BUFFER_SIZE :: mem.Megabyte
 Matrix :: matrix[4, 4]f32
 
 Paint_Kind :: enum u32 {
-	// Invisible
 	None,
-	// Reserved
 	Solid_Color,
-	// Sample from the font atlas
 	Atlas_Sample,
-	// Sample from the user texture
 	User_Texture_Sample,
-	// A simplex noise shader for ui skeletons
 	Skeleton,
-	// Do I really have to explain?
 	Linear_Gradient,
 	Radial_Gradient,
-	// SDF Visualizer
 	Distance_Field,
-	// Wheel gradient
 	Wheel_Gradient,
 	Triangle_Gradient,
 }
@@ -80,6 +72,8 @@ Paint :: struct #align (8) {
 	cv0:   [2]f32,
 	cv1:   [2]f32,
 	cv2:   [2]f32,
+	cv3:   [2]f32,
+	pad0: [2]u32,
 	col0:  [4]f32,
 	col1:  [4]f32,
 	col2:  [4]f32,
@@ -94,15 +88,6 @@ Paint_Option :: union {
 }
 
 Index :: u16
-
-// I keep UV and color in here purely for the HSVA color wheel, they shouldn't be necessary
-Vertex :: struct {
-	pos:   [2]f32,
-	uv:    [2]f32,
-	col:   [4]u8,
-	shape: u32,
-	paint: u32,
-}
 
 // A call to the GPU to draw some stuff
 Draw_Call :: struct {
@@ -231,6 +216,21 @@ make_tri_gradient :: proc(points: [3][2]f32, colors: [3]Color) -> Paint {
 		col0 = normalize_color(colors[0]),
 		col1 = normalize_color(colors[1]),
 		col2 = normalize_color(colors[2]),
+	}
+}
+
+make_atlas_sample :: proc(source, target: Box, tint: Color) -> Paint {
+	source := Box{
+		source.lo / core.atlas_size,
+		source.hi / core.atlas_size,
+	}
+	return Paint {
+		kind = .Atlas_Sample,
+		cv0 = source.lo,
+		cv1 = source.hi - source.lo,
+		cv2 = target.lo,
+		cv3 = target.hi - target.lo,
+		col0 = normalize_color(tint),
 	}
 }
 
