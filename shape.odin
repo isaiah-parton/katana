@@ -441,8 +441,8 @@ line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
 	add_shape(
 		Shape {
 			kind = .Line_Segment,
-			cv0 = a + 0.5,
-			cv1 = b + 0.5,
+			cv0 = a,
+			cv1 = b,
 			width = width - 0.5,
 			paint = paint_index_from_option(paint),
 		},
@@ -575,7 +575,7 @@ spinner :: proc(center: [2]f32, radius: f32, color: Color) {
 	arc(center, from, to, radius - width, radius, paint = color)
 }
 
-arrow :: proc(pos: [2]f32, scale: f32, angle: f32 = 0, paint: Paint_Option = nil) {
+arrow :: proc(pos: [2]f32, scale: f32, thickness: f32, angle: f32 = 0, paint: Paint_Option = nil) {
 	push_matrix()
 	defer pop_matrix()
 	translate(pos)
@@ -587,15 +587,15 @@ arrow :: proc(pos: [2]f32, scale: f32, angle: f32 = 0, paint: Paint_Option = nil
 			pos + [2]f32{0.5, 0} * scale,
 			pos + [2]f32{-0.5, 0.877} * scale,
 		},
-		2,
+		thickness,
 		paint = paint,
 	)
 }
 
-check :: proc(pos: [2]f32, scale: f32, color: Color) {
+check :: proc(pos: [2]f32, scale: f32, thickness: f32, color: Color) {
 	lines(
 		{pos + {-1, -0.047} * scale, pos + {-0.333, 0.619} * scale, pos + {1, -0.713} * scale},
-		1,
+		thickness,
 		paint = color,
 	)
 }
