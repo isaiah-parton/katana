@@ -6,6 +6,7 @@ import "core:math"
 import "core:math/linalg"
 import "core:unicode"
 import "core:unicode/utf8"
+import "core:io"
 
 Text_Justify :: enum {
 	Left,
@@ -348,6 +349,25 @@ fill_text_layout :: proc(
 ) {
 	origin := origin - layout.size * align
 	for &glyph in layout.glyphs {
+		fill_glyph(
+			glyph,
+			layout.font_scale,
+			origin + glyph.offset,
+			paint = paint_index_from_option(paint),
+			bias = glyph_bias_from_paint(paint),
+		)
+	}
+}
+
+fill_text_layout_range :: proc(
+	layout: Text_Layout,
+	range: [2]int,
+	origin: [2]f32,
+	align: [2]f32 = 0,
+	paint: Paint_Option = nil,
+) {
+	origin := origin - layout.size * align
+	for &glyph in layout.glyphs[range[0]:range[1]] {
 		fill_glyph(
 			glyph,
 			layout.font_scale,
