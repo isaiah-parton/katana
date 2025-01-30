@@ -56,7 +56,7 @@ load_font_from_files :: proc(image_file, json_file: string) -> (font: Font, ok: 
 	return load_font_from_slices(image_data, json_data)
 }
 
-load_font_from_slices :: proc(image_data, json_data: []u8) -> (font: Font, ok: bool) {
+load_font_from_slices :: proc(image_data, json_data: []u8, center_y: bool = false) -> (font: Font, ok: bool) {
 	width, height: libc.int
 	bitmap_data := stbi.load_from_memory(
 		raw_data(image_data),
@@ -112,6 +112,11 @@ load_font_from_slices :: proc(image_data, json_data: []u8) -> (font: Font, ok: b
 					1.0 - f32(plane_bounds_obj["bottom"].(json.Float) or_return),
 				},
 			}
+		}
+		if center_y {
+			adjustment := font.line_height - font.ascend
+			glyph.bounds.lo.y += adjustment
+			glyph.bounds.hi.y += adjustment
 		}
 		if atlas_bounds_obj, ok := glyph_obj["atlasBounds"].(json.Object); ok {
 			glyph.source = Box{
