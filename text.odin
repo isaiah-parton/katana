@@ -65,7 +65,6 @@ Text_Options :: struct {
 	max_width:  f32,
 	max_height: f32,
 	wrap:       Text_Wrap,
-	justify:    Text_Justify,
 	obfuscated: bool,
 }
 
@@ -74,7 +73,6 @@ DEFAULT_TEXT_OPTIONS :: Text_Options {
 	max_width  = math.F32_MAX,
 	max_height = math.F32_MAX,
 	wrap       = .None,
-	justify    = .Left,
 }
 
 // Argument defaults should be faster than checking a `Maybe()`
@@ -83,14 +81,12 @@ text_options :: proc(
 	max_width: f32 = DEFAULT_TEXT_OPTIONS.max_width,
 	max_height: f32 = DEFAULT_TEXT_OPTIONS.max_height,
 	wrap: Text_Wrap = DEFAULT_TEXT_OPTIONS.wrap,
-	justify: Text_Justify = DEFAULT_TEXT_OPTIONS.justify,
 ) -> Text_Options {
 	return {
 		spacing = spacing,
 		max_width = max_width,
 		max_height = max_height,
 		wrap = wrap,
-		justify = justify,
 	}
 }
 
@@ -105,6 +101,7 @@ make_text_layout :: proc(
 	options: Text_Options = DEFAULT_TEXT_OPTIONS,
 	local_mouse: [2]f32 = {},
 	selection: Maybe([2]int) = nil,
+	justify: f32 = 0,
 ) -> (
 	layout: Text_Layout,
 ) {
@@ -152,14 +149,7 @@ make_text_layout :: proc(
 			line.glyph_range[1] = len(core.text_glyphs) - int(iter.new_line)
 			line.size = {iter.line_width, font.line_height * size}
 			line_offset: [2]f32
-
-			switch options.justify {
-			case .Left:
-			case .Center:
-				line_offset.x = -line.size.x / 2
-			case .Right:
-				line_offset.x = -line.size.x
-			}
+			line_offset.x -= line.size.x * justify
 
 			for &glyph in core.text_glyphs[line.glyph_range[0]:line.glyph_range[1]] {
 				glyph.offset += line_offset
@@ -178,7 +168,6 @@ make_text_layout :: proc(
 
 			line = new_line
 		}
-
 
 		if selection, ok := selection.?; ok {
 			local_glyph_index := len(core.text_glyphs) - first_glyph
@@ -270,8 +259,7 @@ iterate_text :: proc(
 	}
 
 	if iter.new_line {
-		iter.line_width = 0
-		iter.line_width += iter.glyph.advance * size + options.spacing
+		iter.line_width = iter.glyph.advance * size + options.spacing
 	}
 
 	if iter.char != 0 {

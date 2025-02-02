@@ -18,7 +18,6 @@ Font_Glyph :: struct {
 	source:  Box,
 	bounds:  Box,
 	advance: f32,
-	descend: f32,
 }
 
 Font :: struct {
