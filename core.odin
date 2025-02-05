@@ -134,6 +134,7 @@ reset_drawing :: proc() {
 
 	append_draw_call()
 
+	core.scissor_stack.height = 0
 	core.matrix_stack.height = 0
 	core.last_matrix = {}
 	core.matrix_index = 0

@@ -567,8 +567,8 @@ box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) {
 }
 
 spinner :: proc(center: [2]f32, radius: f32, color: Color) {
-	from := f32(time.duration_seconds(time.since(core.start_time)) * 2) * math.PI
-	to := from + 2.5 + math.sin(f32(time.duration_seconds(time.since(core.start_time)) * 3)) * 1
+	from := f32(run_time() * 2) * math.PI
+	to := from + 2.5 + math.sin(f32(run_time() * 3)) * 1
 
 	width := radius * 0.25
 
