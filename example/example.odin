@@ -502,7 +502,8 @@ main :: proc() {
 				LOREM_IPSUM,
 				24,
 				regular_font,
-				vgo.text_options(wrap = .Word, justify = .Center, max_width = max_width),
+				vgo.text_options(wrap = .Word, max_width = max_width),
+				justify = 0.5,
 			)
 			origin := canvas_size / 2
 			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.GRAY(0.1))

@@ -124,8 +124,8 @@ init_renderer_with_device_and_surface :: proc(
 		&{label = "UniformBuffer", size = size_of(Shader_Uniforms), usage = {.Uniform, .CopyDst}},
 	)
 	wgpu_buffer_create(&renderer.shapes, renderer.device, "ShapeBuffer", 8192)
-	wgpu_buffer_create(&renderer.paints, renderer.device, "PaintBuffer", 4096)
-	wgpu_buffer_create(&renderer.cvs, renderer.device, "ControlVertexBuffer", 4096)
+	wgpu_buffer_create(&renderer.paints, renderer.device, "PaintBuffer", 8192)
+	wgpu_buffer_create(&renderer.cvs, renderer.device, "ControlVertexBuffer", 2048)
 	wgpu_buffer_create(&renderer.xforms, renderer.device, "MatrixBuffer", 1024)
 	// Create bind group layouts
 	uniform_bind_group_layout := wgpu.DeviceCreateBindGroupLayout(
