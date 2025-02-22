@@ -355,7 +355,7 @@ fill_text_layout_range :: proc(
 	paint: Paint_Option = nil,
 ) {
 	origin := origin - layout.size * align
-	for &glyph in layout.glyphs[range[0]:range[1]] {
+	for &glyph in layout.glyphs[range[0]:max(range[0], range[1])] {
 		fill_glyph(
 			glyph,
 			layout.font_scale,
