@@ -417,6 +417,6 @@ fill_glyph :: proc(
 
 text_layout_scaffold :: proc(layout: Text_Layout, origin: [2]f32) {
 	for line in layout.lines {
-		stroke_box({origin + line.offset, origin + line.offset + line.size}, 1, paint = RED)
+		stroke_box({origin + line.offset, origin + line.offset + line.size}, 1, paint = Red)
 	}
 }
