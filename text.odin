@@ -403,6 +403,14 @@ make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) 
 	}
 }
 
+fill_rune :: proc(char: rune, size: f32, origin: [2]f32, align: [2]f32 = 0, font: Font = core.default_font, paint: Paint_Option = nil) -> u32 {
+	glyph, ok := get_font_glyph(font, char)
+	if !ok {
+		return 0
+	}
+	return fill_glyph(glyph, size, origin - {glyph.advance, font.line_height} * align * size, paint = paint)
+}
+
 fill_glyph :: proc(
 	glyph: Font_Glyph,
 	size: f32,
