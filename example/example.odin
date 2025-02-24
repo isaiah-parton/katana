@@ -166,7 +166,7 @@ main :: proc() {
 
 		vgo.new_frame()
 
-		GRADIENT_COLORS :: [2]vgo.Color{vgo.BLUE, vgo.DEEP_BLUE}
+		GRADIENT_COLORS :: [2]vgo.Color{vgo.Blue, vgo.DeepBlue}
 
 		Layout :: struct {
 			bounds, box: vgo.Box,
@@ -291,7 +291,7 @@ main :: proc() {
 				}
 				container_center := (container.lo + container.hi) / 2
 				vgo.fill_path(
-					vgo.make_atlas_sample(image_source, {container_center - radius, container_center + radius}, vgo.WHITE)
+					vgo.make_atlas_sample(image_source, {container_center - radius, container_center + radius}, vgo.White)
 					// vgo.make_linear_gradient(
 					// 	center - radius,
 					// 	center + radius,
@@ -441,8 +441,8 @@ main :: proc() {
 				defer vgo.pop_matrix()
 				vgo.translate(center)
 				vgo.rotate(animation_time * 0.1)
-				vgo.fill_text_layout(text_layout, -text_layout.size / 2 + 4, paint = vgo.GRAY(0.1))
-				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.WHITE)
+				vgo.fill_text_layout(text_layout, -text_layout.size / 2 + 4, paint = vgo.Gray(0.1))
+				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.White)
 			}
 			{
 				box := layout.bounds
@@ -457,7 +457,7 @@ main :: proc() {
 				vgo.translate(center)
 				vgo.scale({1.0 + math.cos(animation_time) * 0.5, 1.0})
 
-				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.WHITE)
+				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.White)
 			}
 			{
 				box := layout.bounds
@@ -467,13 +467,13 @@ main :: proc() {
 				center := canvas_size / 2 + {0, 200}
 
 				text_layout := vgo.make_text_layout("Dynamic text scale", text_size, regular_font)
-				vgo.fill_text_layout(text_layout, center - text_layout.size / 2, paint = vgo.WHITE)
+				vgo.fill_text_layout(text_layout, center - text_layout.size / 2, paint = vgo.White)
 			}
 		case 3:
 			box := layout.bounds
 			left_box := vgo.Box{box.lo, {(box.lo.x + box.hi.x) / 2, box.hi.y}}
 			right_box := vgo.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
-			vgo.fill_box(left_box, paint = vgo.WHITE)
+			vgo.fill_box(left_box, paint = vgo.White)
 			left_box.lo += 20
 			right_box.lo += 20
 			left_box.hi -= 20
@@ -490,10 +490,10 @@ main :: proc() {
 						max_width = left_box.hi.x - left_box.lo.x,
 						wrap = .Word,
 					),
-					paint = vgo.BLACK,
+					paint = vgo.Black,
 				)
 				offset +=
-					vgo.fill_text(LOREM_IPSUM, size, right_box.lo + {0, offset}, font = light_font, options = vgo.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word), paint = vgo.WHITE).y +
+					vgo.fill_text(LOREM_IPSUM, size, right_box.lo + {0, offset}, font = light_font, options = vgo.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word), paint = vgo.White).y +
 					10
 			}
 		case 4:
@@ -506,8 +506,8 @@ main :: proc() {
 				justify = 0.5,
 			)
 			origin := canvas_size / 2
-			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.GRAY(0.1))
-			vgo.fill_text_layout(text_layout, origin, paint = vgo.fade(vgo.WHITE, 0.5))
+			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.Gray(0.1))
+			vgo.fill_text_layout(text_layout, origin, paint = vgo.fade(vgo.White, 0.5))
 			vgo.text_layout_scaffold(text_layout, origin)
 		}
 
@@ -515,7 +515,7 @@ main :: proc() {
 			origin = {},
 			text = fmt.tprintf("FPS: %.0f", vgo.get_fps()),
 			size = 20,
-			paint = vgo.GREEN,
+			paint = vgo.Green,
 		)
 
 		{

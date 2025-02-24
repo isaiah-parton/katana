@@ -8,25 +8,6 @@ import "core:strings"
 
 Color :: [4]u8
 
-// Default style().color
-WHITE :: Color(255)
-BLACK :: Color{0, 0, 0, 255}
-GRAY :: proc(shade: f32) -> Color {return{
-		u8(shade * 255.0),
-		u8(shade * 255.0),
-		u8(shade * 255.0),
-		255,
-	}}
-YELLOW :: Color{255, 255, 0, 255}
-BLUE :: Color{0, 115, 255, 255}
-DEEP_BLUE :: Color{0, 0, 255, 255}
-TURQUOISE :: Color{0, 255, 160, 255}
-GREEN :: Color{0, 210, 58, 255}
-RED :: Color{215, 23, 23, 255}
-GOLD :: Color{255, 195, 0, 255}
-MAGENTA :: Color{255, 0, 138, 255}
-
-
 parse_rgba :: proc(str: string) -> (res: Color, ok: bool) {
 	strs := strings.split(str, ", ")
 	defer delete(strs)
