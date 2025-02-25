@@ -1,4 +1,4 @@
-package vgo
+package katana
 // Time to work out the intended usage of this renderer
 //
 // Index of a paint that was already added

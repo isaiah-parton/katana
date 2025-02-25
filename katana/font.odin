@@ -1,4 +1,4 @@
-package vgo
+package katana
 
 import "core:c/libc"
 import "core:encoding/json"

@@ -1,4 +1,4 @@
-package vgo
+package katana
 
 import "base:intrinsics"
 import "core:fmt"

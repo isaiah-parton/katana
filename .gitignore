@@ -3,3 +3,4 @@ example/example
 *.pdb
 *.dll
 *.bin
+.zed/

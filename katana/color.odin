@@ -1,4 +1,4 @@
-package vgo
+package katana
 
 import "core:math"
 import "core:math/bits"

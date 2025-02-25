@@ -1,4 +1,4 @@
-package vgo_example
+package katana_example
 
 import "base:runtime"
 import "core:fmt"
