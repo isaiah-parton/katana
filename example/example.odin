@@ -11,7 +11,7 @@ import "vendor:sdl2"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl2glue"
 
-import ".."
+import kn "../katana"
 
 adapter: wgpu.Adapter
 device: wgpu.Device
@@ -61,7 +61,7 @@ main :: proc() {
 			info := wgpu.AdapterGetInfo(adapter)
 			fmt.printfln("Using %v on %v", info.backendType, info.description)
 
-			descriptor := vgo.device_descriptor()
+			descriptor := kn.device_descriptor()
 			wgpu.AdapterRequestDevice(adapter, &descriptor, on_device)
 		case .Error:
 			fmt.panicf("Unable to acquire adapter: %s", message)
@@ -77,23 +77,23 @@ main :: proc() {
 	window_width, window_height: i32
 	sdl2.GetWindowSize(window, &window_width, &window_height)
 
-	surface_config := vgo.surface_configuration(device, adapter, surface)
+	surface_config := kn.surface_configuration(device, adapter, surface)
 	surface_config.width = u32(window_width)
 	surface_config.height = u32(window_height)
 	wgpu.SurfaceConfigure(surface, &surface_config)
 
 	fmt.println(surface_config.format)
 
-	vgo.start(device, surface)
-	defer vgo.shutdown()
+	kn.start(device, surface)
+	defer kn.shutdown()
 
 	// Load some fonts
-	light_font, _ := vgo.load_font_from_files(
+	light_font, _ := kn.load_font_from_files(
 		"fonts/KumbhSans-Regular.png",
 		"fonts/KumbhSans-Regular.json",
 	)
 	regular_font := light_font
-	icon_font, _ := vgo.load_font_from_files("fonts/remixicon.png", "fonts/remixicon.json")
+	icon_font, _ := kn.load_font_from_files("fonts/remixicon.png", "fonts/remixicon.json")
 
 	//
 	limit_fps: bool = true
@@ -108,11 +108,11 @@ main :: proc() {
 	frame_time: f32
 	last_frame_time: time.Time
 
-	image_source: vgo.Box
+	image_source: kn.Box
 	image_width, image_height, image_channels: i32
 	image_data := image.load("image.png", &image_width, &image_height, &image_channels, 4)
 	if image_data != nil {
-		image_source = vgo.copy_image_to_atlas(image_data, int(image_width), int(image_height))
+		image_source = kn.copy_image_to_atlas(image_data, int(image_width), int(image_height))
 		fmt.println(image_source)
 	}
 
@@ -130,7 +130,7 @@ main :: proc() {
 		last_frame_time = time.now()
 
 		if animate {
-			animation_time += vgo.frame_time()
+			animation_time += kn.frame_time()
 		}
 
 		event: sdl2.Event
@@ -164,12 +164,12 @@ main :: proc() {
 			}
 		}
 
-		vgo.new_frame()
+		kn.new_frame()
 
-		GRADIENT_COLORS :: [2]vgo.Color{vgo.Blue, vgo.DeepBlue}
+		GRADIENT_COLORS :: [2]kn.Color{kn.Blue, kn.DeepBlue}
 
 		Layout :: struct {
-			bounds, box: vgo.Box,
+			bounds, box: kn.Box,
 		}
 		layout := Layout {
 			bounds = {100, canvas_size - 100},
@@ -180,13 +180,13 @@ main :: proc() {
 		ROWS :: 4
 		SIZE :: 40
 
-		get_box :: proc(layout: ^Layout) -> vgo.Box {
+		get_box :: proc(layout: ^Layout) -> kn.Box {
 			size := (layout.bounds.hi - layout.bounds.lo) / [2]f32{COLUMNS, ROWS}
 			if layout.box.lo.y + size.y > layout.box.hi.y {
 				layout.box.lo.x += size.x
 				layout.box.lo.y = layout.bounds.lo.y
 			}
-			result := vgo.Box{layout.box.lo, layout.box.lo + size}
+			result := kn.Box{layout.box.lo, layout.box.lo + size}
 			layout.box.lo.y += size.y
 			return result
 		}
@@ -197,17 +197,17 @@ main :: proc() {
 				container := get_box(&layout)
 				center := (container.lo + container.hi) / 2
 				radius := f32(SIZE)
-				box := vgo.Box{center - radius, center + radius}
+				box := kn.Box{center - radius, center + radius}
 
-				vgo.push_matrix()
-				defer vgo.pop_matrix()
-				vgo.translate(center)
-				vgo.rotate(math.sin(animation_time * 5) * 0.15)
-				vgo.translate(-center)
-				vgo.fill_box(
+				kn.push_matrix()
+				defer kn.pop_matrix()
+				kn.translate(center)
+				kn.rotate(math.sin(animation_time * 5) * 0.15)
+				kn.translate(-center)
+				kn.fill_box(
 					box,
 					{10, 30, 30, 10},
-					vgo.make_linear_gradient(
+					kn.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
 						GRADIENT_COLORS[0],
@@ -221,10 +221,10 @@ main :: proc() {
 				center := (container.lo + container.hi) / 2
 				radius := f32(SIZE)
 
-				vgo.fill_circle(
+				kn.fill_circle(
 					center,
 					radius,
-					vgo.make_linear_gradient(
+					kn.make_linear_gradient(
 						center - radius,
 						center + radius,
 						GRADIENT_COLORS[0],
@@ -237,21 +237,21 @@ main :: proc() {
 				container := get_box(&layout)
 				center := (container.lo + container.hi) / 2
 				radius := f32(SIZE)
-				box := vgo.Box{center - radius, center + radius}
+				box := kn.Box{center - radius, center + radius}
 
-				vgo.push_matrix()
-				defer vgo.pop_matrix()
-				vgo.translate(center)
-				vgo.rotate(math.sin(animation_time * 1.75) * 0.2)
-				vgo.translate(-center)
-				vgo.begin_path()
-				vgo.move_to(box.lo)
-				vgo.quad_bezier_to({box.lo.x + 30, box.hi.y}, {box.lo.x + 50, box.lo.y + 30})
-				vgo.quad_bezier_to({box.hi.x, box.hi.y}, {box.hi.x - 20, box.hi.y})
-				vgo.quad_bezier_to({box.hi.x - 30, box.hi.y - 40}, {box.hi.x - 20, box.lo.y})
-				vgo.quad_bezier_to({box.lo.x + 20, box.lo.y + 50}, box.lo)
-				vgo.fill_path(
-					vgo.make_linear_gradient(
+				kn.push_matrix()
+				defer kn.pop_matrix()
+				kn.translate(center)
+				kn.rotate(math.sin(animation_time * 1.75) * 0.2)
+				kn.translate(-center)
+				kn.begin_path()
+				kn.move_to(box.lo)
+				kn.quad_bezier_to({box.lo.x + 30, box.hi.y}, {box.lo.x + 50, box.lo.y + 30})
+				kn.quad_bezier_to({box.hi.x, box.hi.y}, {box.hi.x - 20, box.hi.y})
+				kn.quad_bezier_to({box.hi.x - 30, box.hi.y - 40}, {box.hi.x - 20, box.lo.y})
+				kn.quad_bezier_to({box.lo.x + 20, box.lo.y + 50}, box.lo)
+				kn.fill_path(
+					kn.make_linear_gradient(
 						{box.lo.x, box.hi.y},
 						{box.hi.x, box.lo.y},
 						GRADIENT_COLORS[0],
@@ -267,32 +267,32 @@ main :: proc() {
 
 				sides := 5
 
-				vgo.push_matrix()
-				defer vgo.pop_matrix()
-				vgo.translate(center)
-				vgo.rotate(math.sin(animation_time))
-				vgo.translate(-center)
-				vgo.begin_path()
+				kn.push_matrix()
+				defer kn.pop_matrix()
+				kn.translate(center)
+				kn.rotate(math.sin(animation_time))
+				kn.translate(-center)
+				kn.begin_path()
 				for i := 0; i <= sides; i += 1 {
 					a := math.TAU * (f32(i) / f32(sides)) + animation_time * 0.5
 					p := center + [2]f32{math.cos(a), math.sin(a)} * radius
 					if i == 0 {
-						vgo.move_to(p)
+						kn.move_to(p)
 					} else {
 						b :=
 							math.TAU * (f32(i) / f32(sides)) -
 							(math.TAU / f32(sides * 2)) +
 							animation_time * 0.5
-						vgo.quad_bezier_to(
+						kn.quad_bezier_to(
 							center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20),
 							p,
 						)
 					}
 				}
 				container_center := (container.lo + container.hi) / 2
-				vgo.fill_path(
-					vgo.make_atlas_sample(image_source, {container_center - radius, container_center + radius}, vgo.White)
-					// vgo.make_linear_gradient(
+				kn.fill_path(
+					kn.make_atlas_sample(image_source, {container_center - radius, container_center + radius}, kn.White)
+					// kn.make_linear_gradient(
 					// 	center - radius,
 					// 	center + radius,
 					// 	GRADIENT_COLORS[0],
@@ -308,13 +308,13 @@ main :: proc() {
 				radius := f32(SIZE)
 
 				t := animation_time * 3
-				vgo.arc(
+				kn.arc(
 					center,
 					t,
 					t + math.TAU * 0.75,
 					radius - 4,
 					radius,
-					paint = vgo.make_linear_gradient(
+					paint = kn.make_linear_gradient(
 						center - radius,
 						center + radius,
 						GRADIENT_COLORS[0],
@@ -330,13 +330,13 @@ main :: proc() {
 				radius := f32(SIZE)
 
 				s := math.sin(animation_time * 3) * radius * 1.5
-				vgo.stroke_cubic_bezier(
+				kn.stroke_cubic_bezier(
 					center + {-radius, 0},
 					center + {-radius * 0.4, -s},
 					center + {radius * 0.4, s},
 					center + {radius, 0},
 					4.0,
-					vgo.make_linear_gradient(
+					kn.make_linear_gradient(
 						center - radius,
 						center + radius,
 						GRADIENT_COLORS[0],
@@ -352,12 +352,12 @@ main :: proc() {
 				radius := f32(SIZE)
 
 				t := abs(math.cos(animation_time * 8)) * 0.7
-				vgo.fill_pie(
+				kn.fill_pie(
 					center,
 					t,
 					-t,
 					radius,
-					vgo.make_linear_gradient(
+					kn.make_linear_gradient(
 						center - radius,
 						center + radius,
 						GRADIENT_COLORS[0],
@@ -373,18 +373,18 @@ main :: proc() {
 				radius := f32(SIZE + 5) + math.sin(animation_time * 2) * 20
 				size := radius * 2
 
-				vgo.push_matrix()
-				defer vgo.pop_matrix()
-				vgo.translate(center)
-				vgo.rotate(
+				kn.push_matrix()
+				defer kn.pop_matrix()
+				kn.translate(center)
+				kn.rotate(
 					math.TAU *
 					ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0),
 				)
-				vgo.fill_glyph(
+				kn.fill_glyph(
 					icon_font.glyphs[int(animation_time + 0.1) % len(icon_font.glyphs)],
 					size,
 					-radius,
-					vgo.make_linear_gradient(
+					kn.make_linear_gradient(
 						-radius,
 						radius,
 						GRADIENT_COLORS[0],
@@ -403,31 +403,31 @@ main :: proc() {
 			radius1 := f32(250) + math.cos(animation_time + 1) * 50
 			radius2 := f32(250) + math.cos(animation_time + 2) * 50
 
-			vgo.fill_box(
+			kn.fill_box(
 				box,
-				paint = vgo.make_radial_gradient(
+				paint = kn.make_radial_gradient(
 					center0,
 					radius0,
-					vgo.Color{255, 0, 0, u8(math.round(f32(255.0 / 1.5)))},
-					vgo.Color{255, 0, 0, 0},
+					kn.Color{255, 0, 0, u8(math.round(f32(255.0 / 1.5)))},
+					kn.Color{255, 0, 0, 0},
 				),
 			)
-			vgo.fill_box(
+			kn.fill_box(
 				box,
-				paint = vgo.make_radial_gradient(
+				paint = kn.make_radial_gradient(
 					center1,
 					radius1,
-					vgo.Color{0, 0, 255, u8(math.round(f32(255.0 / 1.5)))},
-					vgo.Color{0, 0, 255, 0},
+					kn.Color{0, 0, 255, u8(math.round(f32(255.0 / 1.5)))},
+					kn.Color{0, 0, 255, 0},
 				),
 			)
-			vgo.fill_box(
+			kn.fill_box(
 				box,
-				paint = vgo.make_radial_gradient(
+				paint = kn.make_radial_gradient(
 					center2,
 					radius2,
-					vgo.Color{0, 255, 0, u8(math.round(f32(255.0 / 1.5)))},
-					vgo.Color{0, 255, 0, 0},
+					kn.Color{0, 255, 0, u8(math.round(f32(255.0 / 1.5)))},
+					kn.Color{0, 255, 0, 0},
 				),
 			)
 		case 2:
@@ -435,14 +435,14 @@ main :: proc() {
 				text := "Rotating text!"
 				text_size := f32(48)
 				center := canvas_size / 2
-				text_layout := vgo.make_text_layout(text, text_size, regular_font)
+				text_layout := kn.make_text_layout(text, text_size, regular_font)
 
-				vgo.push_matrix()
-				defer vgo.pop_matrix()
-				vgo.translate(center)
-				vgo.rotate(animation_time * 0.1)
-				vgo.fill_text_layout(text_layout, -text_layout.size / 2 + 4, paint = vgo.Gray(0.1))
-				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.White)
+				kn.push_matrix()
+				defer kn.pop_matrix()
+				kn.translate(center)
+				kn.rotate(animation_time * 0.1)
+				kn.fill_text_layout(text_layout, -text_layout.size / 2 + 4, paint = kn.Gray(0.1))
+				kn.fill_text_layout(text_layout, -text_layout.size / 2, paint = kn.White)
 			}
 			{
 				box := layout.bounds
@@ -450,14 +450,14 @@ main :: proc() {
 				text := "Stretched text"
 				text_size := f32(48)
 				center := canvas_size / 2 + {0, -200}
-				text_layout := vgo.make_text_layout(text, text_size, regular_font)
+				text_layout := kn.make_text_layout(text, text_size, regular_font)
 
-				vgo.push_matrix()
-				defer vgo.pop_matrix()
-				vgo.translate(center)
-				vgo.scale({1.0 + math.cos(animation_time) * 0.5, 1.0})
+				kn.push_matrix()
+				defer kn.pop_matrix()
+				kn.translate(center)
+				kn.scale({1.0 + math.cos(animation_time) * 0.5, 1.0})
 
-				vgo.fill_text_layout(text_layout, -text_layout.size / 2, paint = vgo.White)
+				kn.fill_text_layout(text_layout, -text_layout.size / 2, paint = kn.White)
 			}
 			{
 				box := layout.bounds
@@ -466,14 +466,14 @@ main :: proc() {
 				text_size := f32(48) + math.sin(animation_time * 0.3) * 32
 				center := canvas_size / 2 + {0, 200}
 
-				text_layout := vgo.make_text_layout("Dynamic text scale", text_size, regular_font)
-				vgo.fill_text_layout(text_layout, center - text_layout.size / 2, paint = vgo.White)
+				text_layout := kn.make_text_layout("Dynamic text scale", text_size, regular_font)
+				kn.fill_text_layout(text_layout, center - text_layout.size / 2, paint = kn.White)
 			}
 		case 3:
 			box := layout.bounds
-			left_box := vgo.Box{box.lo, {(box.lo.x + box.hi.x) / 2, box.hi.y}}
-			right_box := vgo.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
-			vgo.fill_box(left_box, paint = vgo.White)
+			left_box := kn.Box{box.lo, {(box.lo.x + box.hi.x) / 2, box.hi.y}}
+			right_box := kn.Box{{(box.lo.x + box.hi.x) / 2, box.lo.y}, box.hi}
+			kn.fill_box(left_box, paint = kn.White)
 			left_box.lo += 20
 			right_box.lo += 20
 			left_box.hi -= 20
@@ -481,57 +481,57 @@ main :: proc() {
 			offset: f32 = 0
 			TEXT_SIZES :: [?]f32{16, 20, 26, 32}
 			for size, i in TEXT_SIZES {
-				vgo.fill_text(
+				kn.fill_text(
 					LOREM_IPSUM,
 					size,
 					left_box.lo + {0, offset},
 					font = light_font,
-					options = vgo.text_options(
+					options = kn.text_options(
 						max_width = left_box.hi.x - left_box.lo.x,
 						wrap = .Word,
 					),
-					paint = vgo.Black,
+					paint = kn.Black,
 				)
 				offset +=
-					vgo.fill_text(LOREM_IPSUM, size, right_box.lo + {0, offset}, font = light_font, options = vgo.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word), paint = vgo.White).y +
+					kn.fill_text(LOREM_IPSUM, size, right_box.lo + {0, offset}, font = light_font, options = kn.text_options(max_width = right_box.hi.x - right_box.lo.x, wrap = .Word), paint = kn.White).y +
 					10
 			}
 		case 4:
 			max_width := f32(400)
-			text_layout := vgo.make_text_layout(
+			text_layout := kn.make_text_layout(
 				LOREM_IPSUM,
 				24,
 				regular_font,
-				vgo.text_options(wrap = .Word, max_width = max_width),
+				kn.text_options(wrap = .Word, max_width = max_width),
 				justify = 0.5,
 			)
 			origin := canvas_size / 2
-			vgo.fill_box({origin, origin + {max_width, 400}}, paint = vgo.Gray(0.1))
-			vgo.fill_text_layout(text_layout, origin, paint = vgo.fade(vgo.White, 0.5))
-			vgo.text_layout_scaffold(text_layout, origin)
+			kn.fill_box({origin, origin + {max_width, 400}}, paint = kn.Gray(0.1))
+			kn.fill_text_layout(text_layout, origin, paint = kn.fade(kn.White, 0.5))
+			kn.text_layout_scaffold(text_layout, origin)
 		}
 
-		vgo.fill_text(
+		kn.fill_text(
 			origin = {},
-			text = fmt.tprintf("FPS: %.0f", vgo.get_fps()),
+			text = fmt.tprintf("FPS: %.0f", kn.get_fps()),
 			size = 20,
-			paint = vgo.Green,
+			paint = kn.Green,
 		)
 
 		{
 			text := "[A] play/pause animation\n[Right] next page\n[Left] previous page"
 			text_size := f32(16)
-			size := vgo.measure_text(text, light_font, text_size)
-			vgo.fill_text(
+			size := kn.measure_text(text, light_font, text_size)
+			kn.fill_text(
 				text,
 				text_size,
 				{0, canvas_size.y - size.y},
 				font = light_font,
-				paint = vgo.Color(255),
+				paint = kn.Color(255),
 			)
 		}
 
-		vgo.present()
+		kn.present()
 
 		free_all(context.temp_allocator)
 	}

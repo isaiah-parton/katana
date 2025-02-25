@@ -1,2 +1,5 @@
 *.exe
 example/example
+*.pdb
+*.dll
+*.bin
