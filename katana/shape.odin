@@ -351,7 +351,7 @@ Line_Join_Style :: enum {
 }
 
 // Draw one or more line segments connected with miter joints
-lines :: proc(
+add_lines :: proc(
 	points: [][2]f32,
 	width: f32,
 	closed: bool = false,
@@ -364,7 +364,7 @@ lines :: proc(
 	switch join_style {
 	case .Round:
 		for i in 0..<len(points) - 1 {
-			line(points[i], points[i + 1], width, paint)
+			add_line(points[i], points[i + 1], width, paint)
 		}
 	case .Miter:
 		v0, v1: [2]f32
@@ -395,7 +395,7 @@ lines :: proc(
 				continue
 			}
 			if width <= 1.0 {
-				line(p1, p2, width, paint)
+				add_line(p1, p2, width, paint)
 			} else {
 				width := width / 2
 				line := linalg.normalize(p2 - p1)
@@ -415,7 +415,7 @@ lines :: proc(
 				nv0 := p2 - (width / dot2) * miter2
 				nv1 := p2 + (width / dot2) * miter2
 				// Add a polygon for each quad
-				fill_polygon({v0, v1, nv1, nv0}, paint = paint)
+				add_polygon({v0, v1, nv1, nv0}, paint = paint)
 				v0, v1 = nv0, nv1
 			}
 		}
@@ -437,19 +437,19 @@ normalize_color :: proc(color: Color) -> [4]f32 {
 	return {f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0}
 }
 
-line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option) {
+add_line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option = nil) {
 	add_shape(
 		Shape {
 			kind = .Line_Segment,
 			cv0 = a,
 			cv1 = b,
-			width = width - 0.5,
+			width = width - 1,
 			paint = paint_index_from_option(paint),
 		},
 	)
 }
 
-stroke_quad_bezier :: proc(a, b, c: [2]f32, width: f32, paint: Paint_Option) {
+add_quadratic_bezier :: proc(a, b, c: [2]f32, width: f32, paint: Paint_Option) {
 	shape := Shape {
 		kind  = .Bezier,
 		cv0   = a,
@@ -461,7 +461,7 @@ stroke_quad_bezier :: proc(a, b, c: [2]f32, width: f32, paint: Paint_Option) {
 	add_shape(shape)
 }
 
-stroke_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option) {
+add_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option) {
 	ab := linalg.lerp(a, b, 0.5)
 	cd := linalg.lerp(c, d, 0.5)
 	mp := linalg.lerp(ab, cd, 0.5)
@@ -473,7 +473,7 @@ stroke_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option)
 	)
 }
 
-fill_polygon :: proc(vertices: [][2]f32, paint: Paint_Option = nil) {
+add_polygon :: proc(vertices: [][2]f32, paint: Paint_Option = nil) {
 	add_shape(Shape {
 		kind  = .Polygon,
 		start = add_vertices(..vertices),
@@ -482,8 +482,8 @@ fill_polygon :: proc(vertices: [][2]f32, paint: Paint_Option = nil) {
 	})
 }
 
-stroke_polygon :: proc(vertices: [][2]f32, width: f32 = 1, paint: Paint_Option = nil) {
-	lines(vertices, width, true, paint = paint)
+add_polygon_lines :: proc(vertices: [][2]f32, width: f32 = 1, paint: Paint_Option = nil) {
+	add_lines(vertices, width, true, paint = paint)
 }
 
 lerp_cubic_bezier :: proc(a, b, c, d: [2]f32, t: f32) -> [2]f32 {
@@ -495,13 +495,13 @@ lerp_cubic_bezier :: proc(a, b, c, d: [2]f32, t: f32) -> [2]f32 {
 	}
 }
 
-fill_pie :: proc(center: [2]f32, from, to, radius: f32, paint: Paint_Option) {
+add_pie :: proc(center: [2]f32, from, to, radius: f32, paint: Paint_Option) {
 	shape := make_pie(center, from, to, radius)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
 }
 
-stroke_pie :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Paint_Option) {
+add_pie_lines :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Paint_Option) {
 	shape := make_pie(center, from, to, radius)
 	shape.outline = .Inner_Stroke
 	shape.width = width
@@ -509,13 +509,13 @@ stroke_pie :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: Pai
 	add_shape(shape)
 }
 
-arc :: proc(center: [2]f32, from, to: f32, inner, outer: f32, square: bool = false, paint: Paint_Option = nil) {
+add_arc :: proc(center: [2]f32, from, to: f32, inner, outer: f32, square: bool = false, paint: Paint_Option = nil) {
 	shape := make_arc(center, from, to, inner, outer, square)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
 }
 
-fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option = nil) {
+add_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option = nil) {
 	add_shape(
 		Shape {
 			kind = .Circle,
@@ -526,7 +526,7 @@ fill_circle :: proc(center: [2]f32, radius: f32, paint: Paint_Option = nil) {
 	)
 }
 
-stroke_circle :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option = nil) {
+add_circle_lines :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option = nil) {
 	add_shape(
 		Shape {
 			kind = .Circle,
@@ -539,13 +539,13 @@ stroke_circle :: proc(center: [2]f32, radius, width: f32, paint: Paint_Option = 
 	)
 }
 
-fill_box :: proc(box: Box, radius: [4]f32 = {}, paint: Paint_Option = nil) {
+add_box :: proc(box: Box, radius: [4]f32 = {}, paint: Paint_Option = nil) {
 	shape := make_box(box, radius)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
 }
 
-stroke_box :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option, outline: Shape_Outline = .Inner_Stroke) {
+add_box_lines :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option = nil, outline: Shape_Outline = .Inner_Stroke) {
 	shape := make_box(box, radius)
 	shape.outline = outline
 	shape.width = width
@@ -553,7 +553,7 @@ stroke_box :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Optio
 	add_shape(shape)
 }
 
-box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) {
+add_box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) {
 	add_shape(
 		Shape {
 			kind = .Blurred_Box,
@@ -566,22 +566,22 @@ box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) {
 	)
 }
 
-spinner :: proc(center: [2]f32, radius: f32, color: Color) {
+add_spinner :: proc(center: [2]f32, radius: f32, color: Color) {
 	from := f32(run_time() * 2) * math.PI
 	to := from + 2.5 + math.sin(f32(run_time() * 3)) * 1
 
 	width := radius * 0.25
 
-	arc(center, from, to, radius - width, radius, paint = color)
+	add_arc(center, from, to, radius - width, radius, paint = color)
 }
 
-arrow :: proc(pos: [2]f32, scale: f32, thickness: f32, angle: f32 = 0, paint: Paint_Option = nil) {
+add_arrow :: proc(pos: [2]f32, scale: f32, thickness: f32, angle: f32 = 0, paint: Paint_Option = nil) {
 	push_matrix()
 	defer pop_matrix()
 	translate(pos)
 	rotate(angle)
 	translate(-pos)
-	lines(
+	add_lines(
 		{
 			pos + [2]f32{-0.5, -0.877} * scale,
 			pos + [2]f32{0.5, 0} * scale,
@@ -592,8 +592,8 @@ arrow :: proc(pos: [2]f32, scale: f32, thickness: f32, angle: f32 = 0, paint: Pa
 	)
 }
 
-check :: proc(pos: [2]f32, scale: f32, thickness: f32, color: Color) {
-	lines(
+add_check :: proc(pos: [2]f32, scale: f32, thickness: f32, color: Color) {
+	add_lines(
 		{pos + {-1, -0.047} * scale, pos + {-0.333, 0.619} * scale, pos + {1, -0.713} * scale},
 		thickness,
 		paint = color,

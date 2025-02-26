@@ -25,7 +25,7 @@ Text_Glyph :: struct {
 	using glyph: Font_Glyph,
 	code:        rune,
 	index:       int,
-	line: int,
+	line:        int,
 	offset:      [2]f32,
 }
 
@@ -36,7 +36,7 @@ Text_Line :: struct {
 	glyph_range: [2]int,
 }
 
-Text_Layout :: struct {
+Text :: struct {
 	font:             Font,
 	font_scale:       f32,
 	glyphs:           []Text_Glyph,
@@ -46,22 +46,22 @@ Text_Layout :: struct {
 	selection_glyphs: [2]int,
 }
 
-Selectable_Text_Layout :: struct {
-	using text_layout: Text_Layout,
-	mouse_contact:           bool,
-	mouse_index:             int,
-	mouse_glyph:             int,
-	mouse_line:              int,
+Selectable_Text :: struct {
+	using text:    Text,
+	mouse_contact: bool,
+	mouse_index:   int,
+	mouse_glyph:   int,
+	mouse_line:    int,
 }
 
 Text_Iterator :: struct {
-	text:       string,
+	data:       string,
 	font:       Font,
 	font_size:  f32,
-	spacing: f32,
+	spacing:    f32,
 	max_width:  f32,
 	max_height: f32,
-	wrap: Text_Wrap,
+	wrap:       Text_Wrap,
 	glyph:      Font_Glyph,
 	line_width: f32,
 	new_line:   bool,
@@ -74,12 +74,12 @@ Text_Iterator :: struct {
 	next_index: int,
 }
 
-text_layout_is_empty :: proc(layout: ^Text_Layout) -> bool {
-	return len(layout.glyphs) == 0
+text_is_empty :: proc(text: ^Text) -> bool {
+	return len(text.glyphs) == 0
 }
 
-make_text_layout :: proc(
-	text: string,
+make_text :: proc(
+	data: string,
 	size: f32,
 	font: Font = core.current_font,
 	wrap: Text_Wrap = .None,
@@ -88,14 +88,15 @@ make_text_layout :: proc(
 	selection: Maybe([2]int) = nil,
 	allocator: mem.Allocator = context.temp_allocator,
 ) -> (
-	layout: Text_Layout,
+	text: Text,
 ) {
 	iter: Text_Iterator = {
 		font       = font,
 		font_size  = size,
-		text       = text,
+		data       = data,
 		max_width  = max_size.x,
 		max_height = max_size.y,
+		wrap = wrap,
 	}
 
 	glyphs := make([dynamic]Text_Glyph, allocator = allocator)
@@ -106,14 +107,14 @@ make_text_layout :: proc(
 	}
 	line_height := (font.ascend - font.descend) * size
 
-	layout.font_scale = size
-	layout.font = font
+	text.font_scale = size
+	text.font = font
 
 	for iterate_text(&iter) {
 		if iter.new_line || iter.at_end {
 			current_line := len(lines)
 
-			line.glyph_range[1] = len(glyphs) - int(iter.new_line)
+			line.glyph_range[1] = len(glyphs)// - int(iter.new_line)
 			line.size = {iter.line_width, font.line_height * size}
 			line_offset: [2]f32
 			line_offset.x -= line.size.x * justify
@@ -128,8 +129,8 @@ make_text_layout :: proc(
 				offset = iter.offset,
 			}
 
-			layout.size.x = max(layout.size.x, line.size.x)
-			layout.size.y += font.line_height * size
+			text.size.x = max(text.size.x, line.size.x)
+			text.size.y += font.line_height * size
 			append(&lines, line)
 
 			line = new_line
@@ -138,10 +139,10 @@ make_text_layout :: proc(
 		glyph_index := len(glyphs)
 		line_index := len(lines)
 		if selection, ok := selection.?; ok {
-			if selection[0] == iter.index do layout.selection_glyphs[0] = glyph_index
-			if selection[1] == iter.index do layout.selection_glyphs[1] = glyph_index
-			if selection[0] == iter.index do layout.selection_lines[0] = line_index
-			if selection[1] == iter.index do layout.selection_lines[1] = line_index
+			if selection[0] == iter.index do text.selection_glyphs[0] = glyph_index
+			if selection[1] == iter.index do text.selection_glyphs[1] = glyph_index
+			if selection[0] == iter.index do text.selection_lines[0] = line_index
+			if selection[1] == iter.index do text.selection_lines[1] = line_index
 		}
 
 		if iter.at_end {
@@ -162,41 +163,43 @@ make_text_layout :: proc(
 		)
 	}
 
-	layout.glyphs = glyphs[:]
-	layout.lines = lines[:]
+	text.glyphs = glyphs[:]
+	text.lines = lines[:]
 
 	return
 }
 
-make_selectable :: proc(layout: Text_Layout, point: [2]f32) -> Selectable_Text_Layout {
-	layout := Selectable_Text_Layout{text_layout = layout}
+make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
+	text := Selectable_Text {
+		text = text,
+	}
 
 	mouse_index: int = -1
 	closest: f32 = math.F32_MAX
 
-	layout.mouse_glyph = -1
-	layout.mouse_line = max(0, int(point.y / layout.font.line_height))
+	text.mouse_glyph = -1
+	text.mouse_line = max(0, int(point.y / text.font.line_height))
 
-	for &glyph, glyph_index in layout.glyphs {
+	for &glyph, glyph_index in text.glyphs {
 		distance := abs(glyph.offset.x - point.x)
 		if distance < closest {
 			closest = distance
 			mouse_index = glyph.index
 		}
 
-		if glyph_index == len(layout.glyphs) - 1 {
-			layout.mouse_line = min(layout.mouse_line, glyph.line)
+		if glyph_index == len(text.glyphs) - 1 {
+			text.mouse_line = min(text.mouse_line, glyph.line)
 		}
 
-		if glyph.line == layout.mouse_line {
-			layout.mouse_index = mouse_index
+		if glyph.line == text.mouse_line {
+			text.mouse_index = mouse_index
 		}
 
 		mouse_index = -1
 		closest = math.F32_MAX
 	}
 
-	return layout
+	return text
 }
 
 find_font_glyph :: proc(font: Font, char: rune) -> Font_Glyph {
@@ -210,8 +213,8 @@ find_font_glyph :: proc(font: Font, char: rune) -> Font_Glyph {
 }
 
 @(private)
-closest_line_of_text :: proc(offset, layout_height, line_height: f32) -> Maybe(int) {
-	line_count := int(math.floor(layout_height / line_height))
+closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int) {
+	line_count := int(math.floor(text_height / line_height))
 	mouse_line := int(offset / line_height)
 	return mouse_line if (mouse_line >= 0 && mouse_line < line_count) else nil
 }
@@ -242,7 +245,6 @@ first_word_in :: proc(
 	return
 }
 
-@(private)
 iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 	if iter.at_end {
 		return false
@@ -257,12 +259,12 @@ iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 	}
 
 	iter.last_char = iter.char
-	if iter.next_index >= len(iter.text) {
+	if iter.next_index >= len(iter.data) {
 		iter.at_end = true
 	}
 	iter.index = iter.next_index
 	bytes: int
-	iter.char, bytes = utf8.decode_rune(iter.text[iter.index:])
+	iter.char, bytes = utf8.decode_rune(iter.data[iter.index:])
 	// if options.obfuscated {
 	// 	iter.char = '*'
 	// }
@@ -276,15 +278,19 @@ iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 		iter.char = 0
 		iter.glyph = {}
 	} else if (iter.wrap == .Word) && (iter.index >= iter.next_word) && (iter.char != ' ') {
-		iter.next_word, space = first_word_in(iter.text[iter.index:], iter.font, iter.font_size, iter.spacing)
+		iter.next_word, space = first_word_in(
+			iter.data[iter.index:],
+			iter.font,
+			iter.font_size,
+			iter.spacing,
+		)
 	}
 
 	iter.new_line = false
 
 	if iter.last_char == '\n' {
 		iter.new_line = true
-	}
-	if !iter.new_line {
+	} else {
 		if iter.line_width + space > iter.max_width {
 			if iter.wrap == .None {
 				iter.at_end = true
@@ -297,8 +303,9 @@ iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 	if iter.new_line {
 		iter.offset.x = 0
 		iter.offset.y += iter.font.line_height * iter.font_size
-		if iter.offset.y > iter.max_height {
+		if iter.offset.y + iter.font.line_height * iter.font_size >= iter.max_height {
 			iter.at_end = true
+			return false
 		}
 	} else {
 		iter.line_width += iter.glyph.advance * iter.font_size
@@ -310,19 +317,11 @@ iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 	return true
 }
 
-measure_text :: proc(
-	text: string,
-	font: Font,
-	size: f32,
-) -> [2]f32 {
-	return make_text_layout(text, size, font).size
-}
-
-fill_text_layout :: proc(layout: Text_Layout, origin: [2]f32, paint: Paint_Option = nil) {
-	for &glyph in layout.glyphs {
-		fill_glyph(
+add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
+	for &glyph in text.glyphs {
+		add_glyph(
 			glyph,
-			layout.font_scale,
+			text.font_scale,
 			origin + glyph.offset,
 			paint = paint_index_from_option(paint),
 			bias = glyph_bias_from_paint(paint),
@@ -330,16 +329,16 @@ fill_text_layout :: proc(layout: Text_Layout, origin: [2]f32, paint: Paint_Optio
 	}
 }
 
-fill_text_layout_range :: proc(
-	layout: Text_Layout,
+add_text_range :: proc(
+	text: Text,
 	range: [2]int,
 	origin: [2]f32,
 	paint: Paint_Option = nil,
 ) {
-	for &glyph in layout.glyphs[range[0]:max(range[0], range[1])] {
-		fill_glyph(
+	for &glyph in text.glyphs[range[0]:max(range[0], range[1])] {
+		add_glyph(
 			glyph,
-			layout.font_scale,
+			text.font_scale,
 			origin + glyph.offset,
 			paint = paint_index_from_option(paint),
 			bias = glyph_bias_from_paint(paint),
@@ -359,16 +358,29 @@ glyph_bias_from_paint :: proc(paint: Paint_Option) -> f32 {
 	return 0.0
 }
 
-fill_text :: proc(
-	text: string,
+add_string :: proc(
+	str: string,
 	size: f32,
 	origin: [2]f32,
 	align: [2]f32 = 0,
+	justify: f32 = 0,
 	paint: Paint_Option = nil,
 ) -> [2]f32 {
-	layout := make_text_layout(text, size, font = core.current_font, justify = align.x)
-	fill_text_layout(layout, origin - layout.size * align, paint)
-	return layout.size
+	text := make_text(str, size, font = core.current_font, justify = justify)
+	add_text(text, origin - text.size * align, paint)
+	return text.size
+}
+
+add_string_wrapped :: proc(
+	str: string,
+	size: f32,
+	box: Box,
+	align: [2]f32 = 0,
+	paint: Paint_Option = nil,
+) -> [2]f32 {
+	text := make_text(str, size, font = core.current_font, max_size = box.hi - box.lo, wrap = .Character, justify = align.x)
+	add_text(text, math.lerp(box.lo, box.hi, align), paint)
+	return text.size
 }
 
 make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) -> Shape {
@@ -382,19 +394,20 @@ make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) 
 	}
 }
 
-fill_rune :: proc(
+add_rune :: proc(
 	char: rune,
 	size: f32,
 	origin: [2]f32,
 	align: [2]f32 = 0,
-	font: Font = core.default_font,
+	font: Font = core.current_font,
 	paint: Paint_Option = nil,
 ) -> u32 {
 	glyph, ok := get_font_glyph(font, char)
 	if !ok {
+	fmt.printfln("Unable to find font glyph '%c'", char)
 		return 0
 	}
-	return fill_glyph(
+	return add_glyph(
 		glyph,
 		size,
 		origin - {glyph.advance, font.line_height} * align * size,
@@ -402,7 +415,7 @@ fill_rune :: proc(
 	)
 }
 
-fill_glyph :: proc(
+add_glyph :: proc(
 	glyph: Font_Glyph,
 	size: f32,
 	origin: [2]f32,
@@ -414,8 +427,8 @@ fill_glyph :: proc(
 	return add_shape(shape)
 }
 
-text_layout_scaffold :: proc(layout: Text_Layout, origin: [2]f32) {
-	for line in layout.lines {
-		stroke_box({origin + line.offset, origin + line.offset + line.size}, 1, paint = Red)
+add_text_scaffold :: proc(text: Text, origin: [2]f32) {
+	for &line in text.lines {
+		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = Red)
 	}
 }
