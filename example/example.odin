@@ -16,6 +16,13 @@ import kn "../katana"
 adapter: wgpu.Adapter
 device: wgpu.Device
 
+POEM :: `He clasps the crag with crooked hands;
+Close to the sun in lonely lands,
+Ring'd with the azure world, he stands.
+The wrinkled sea beneath him crawls;
+He watches from his mountain walls,
+And like a thunderbolt he falls.`
+
 LOREM_IPSUM :: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus.`
 
 SAMPLE_TEXT :: "The quick brown fox jumps over the lazy dog."
@@ -88,12 +95,11 @@ main :: proc() {
 	defer kn.shutdown()
 
 	// Load some fonts
-	light_font, _ := kn.load_font_from_files(
-		"fonts/KumbhSans-Regular.png",
-		"fonts/KumbhSans-Regular.json",
+	font, _ := kn.load_font_from_files(
+		"fonts/Lexend-Medium.png",
+		"fonts/Lexend-Medium.json",
 	)
-	regular_font := light_font
-	icon_font, _ := kn.load_font_from_files("fonts/remixicon.png", "fonts/remixicon.json")
+	icon_font, _ := kn.load_font_from_files("fonts/icons.png", "fonts/icons.json")
 
 	//
 	limit_fps: bool = true
@@ -169,7 +175,7 @@ main :: proc() {
 			box    = {100, canvas_size - 100},
 		}
 
-		COLUMNS :: 2
+		COLUMNS :: 3
 		ROWS :: 4
 		SIZE :: 40
 
@@ -195,7 +201,7 @@ main :: proc() {
 			kn.translate(center)
 			kn.rotate(math.sin(animation_time * 5) * 0.15)
 			kn.translate(-center)
-			kn.fill_box(
+			kn.add_box(
 				box,
 				{10, 30, 30, 10},
 				kn.make_linear_gradient(
@@ -212,7 +218,7 @@ main :: proc() {
 			center := (container.lo + container.hi) / 2
 			radius := f32(SIZE)
 
-			kn.fill_circle(
+			kn.add_circle(
 				center,
 				radius,
 				kn.make_linear_gradient(
@@ -299,7 +305,7 @@ main :: proc() {
 			radius := f32(SIZE)
 
 			t := animation_time * 3
-			kn.arc(
+			kn.add_arc(
 				center,
 				t,
 				t + math.TAU * 0.75,
@@ -321,7 +327,7 @@ main :: proc() {
 			radius := f32(SIZE)
 
 			s := math.sin(animation_time * 3) * radius * 1.5
-			kn.stroke_cubic_bezier(
+			kn.add_cubic_bezier(
 				center + {-radius, 0},
 				center + {-radius * 0.4, -s},
 				center + {radius * 0.4, s},
@@ -343,7 +349,7 @@ main :: proc() {
 			radius := f32(SIZE)
 
 			t := abs(math.cos(animation_time * 8)) * 0.7
-			kn.fill_pie(
+			kn.add_pie(
 				center,
 				t,
 				-t,
@@ -361,18 +367,19 @@ main :: proc() {
 		{
 			container := get_box(&layout)
 			center := (container.lo + container.hi) / 2
-			radius := f32(SIZE + 5) + math.sin(animation_time * 2) * 20
+			radius := f32(SIZE + 5) + math.sin(animation_time * 2) * 10
 			size := radius * 2
 
 			kn.push_matrix()
 			defer kn.pop_matrix()
 			kn.translate(center)
-			kn.rotate(
-				math.TAU *
-				ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0),
-			)
-			kn.fill_glyph(
-				icon_font.glyphs[int(animation_time + 0.1) % len(icon_font.glyphs)],
+			// kn.rotate(
+			// 	math.TAU *
+			// 	ease.cubic_in_out(max(math.mod(animation_time, 1.0) - 0.8, 0.0) * 5.0),
+			// )
+			kn.scale({math.sin(math.mod(animation_time - 0.5, 1) * math.TAU), 1})
+			kn.add_glyph(
+				icon_font.glyphs[int(animation_time) % len(icon_font.glyphs)],
 				size,
 				-radius,
 				kn.make_linear_gradient(
@@ -384,23 +391,80 @@ main :: proc() {
 			)
 		}
 
-		kn.set_font(regular_font)
-		kn.fill_text(
+		{
+			container := get_box(&layout)
+			center := (container.lo + container.hi) / 2
+			size := [2]f32{
+				clamp(1.5 + math.sin(animation_time * 2) * 2, 1, 2),
+				1,
+			} * 90
+			box := kn.Box{center - size * 0.5, center + size * 0.5}
+			kn.set_paint(kn.DeepBlue)
+			kn.add_box_lines(box, 3, 5)
+			box.lo += 4
+			box.hi -= 4
+			kn.set_paint(kn.Blue)
+			kn.set_font(font)
+			kn.add_string_wrapped(SAMPLE_TEXT, 20, box)
+		}
+
+		{
+			container := get_box(&layout)
+			center := (container.lo + container.hi) / 2
+			size := [2]f32{
+				2,
+				1,
+			} * 90
+			box := kn.Box{center - size * 0.5, center + size * 0.5}
+			kn.set_paint(kn.DeepBlue)
+			kn.add_box_lines(box, 3, 5)
+			box.lo += 4
+			box.hi -= 4
+			kn.set_paint(kn.Blue)
+			kn.set_font(font)
+			kn.add_string_wrapped(SAMPLE_TEXT, 15 * clamp(1.5 + math.sin(animation_time * 2) * 2, 1, 2), box)
+		}
+
+		{
+			container := get_box(&layout)
+			center := (container.lo + container.hi) / 2
+			kn.set_paint(kn.Blue)
+			kn.set_font(font)
+			justify := clamp(0.5 + math.sin(animation_time * 2) * 2, 0, 1)
+			size := kn.add_string(POEM, 12, center, align = {0, 0.5}, justify = justify)
+			kn.add_line({center.x, center.y - size.y / 2}, {center.x, center.y + size.y / 2}, 1)
+		}
+
+		{
+			container := get_box(&layout)
+			center := (container.lo + container.hi) / 2
+			kn.set_paint(kn.Blue)
+			kn.set_font(font)
+			kn.push_matrix()
+			kn.translate(center)
+			kn.rotate(math.sin(animation_time * 20) * (0.2 * max(0, math.sin(animation_time * 2))))
+			kn.scale({math.sin(math.mod(animation_time - 0.5, 1) * math.TAU), 1})
+			kn.add_rune(rune(65 + (int(animation_time) % 26)), 90, 0, 0.5)
+			kn.pop_matrix()
+		}
+
+		kn.set_font(font)
+		kn.add_string(
+			fmt.tprintf("FPS: %.0f", kn.get_fps()),
 			origin = {},
-			text = fmt.tprintf("FPS: %.0f", kn.get_fps()),
 			size = 16,
 			paint = kn.LimeGreen,
 		)
 
 		{
-			text := "[A] play/pause animation\n[Z] toggle fps limit"
-			kn.set_font(light_font)
-			kn.fill_text(
+			text := "[A] toggle animation\n[Z] toggle fps limit"
+			kn.set_font(font)
+			kn.add_string(
 				text,
 				16,
 				{0, canvas_size.y},
 				align = {0, 1},
-				paint = kn.Color(255),
+				paint = kn.White,
 			)
 		}
 
