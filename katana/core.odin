@@ -16,8 +16,6 @@ Core :: struct {
 	last_second:          time.Time,
 	delta_time:           f32,
 	fps:                  f32,
-	text_glyphs:          [dynamic]Text_Glyph,
-	text_lines:           [dynamic]Text_Line,
 	matrix_stack:         Stack(Matrix, 128),
 	current_matrix:       ^Matrix,
 	last_matrix:          Matrix,
@@ -106,8 +104,6 @@ start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 shutdown :: proc() {
 	destroy_font(&core.default_font)
 	delete(core.draw_calls)
-	delete(core.text_lines)
-	delete(core.text_glyphs)
 	wgpu.TextureDestroy(core.atlas_texture)
 	destroy_renderer(&core.renderer)
 }
@@ -121,9 +117,6 @@ reset_drawing :: proc() {
 	clear(&core.renderer.paints.data)
 	clear(&core.renderer.cvs.data)
 	clear(&core.renderer.xforms.data)
-
-	clear(&core.text_lines)
-	clear(&core.text_glyphs)
 
 	clear(&core.draw_calls)
 	core.current_draw_call = nil

@@ -89,8 +89,6 @@ main :: proc() {
 	surface_config.height = u32(window_height)
 	wgpu.SurfaceConfigure(surface, &surface_config)
 
-	fmt.println(surface_config.format)
-
 	kn.start(device, surface)
 	defer kn.shutdown()
 
@@ -117,11 +115,6 @@ main :: proc() {
 	image_data := image.load("image.png", &image_width, &image_height, &image_channels, 4)
 	if image_data != nil {
 		image_source = kn.copy_image_to_atlas(image_data, int(image_width), int(image_height))
-		fmt.println(image_source)
-	}
-
-	Verlet_Body :: struct {
-		pos, prev_pos, acc: [2]f32,
 	}
 
 	// Frame loop
