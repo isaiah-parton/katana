@@ -1,6 +1,8 @@
 ## What is this?
 An immediate-mode 2D signed-distance-field renderer built on WGPU.  It's quite young and built very specifically for my needs at the moment, but might turn into something useful to more people.
 
+![](sample.png)
+
 Things you can expect to find:
 - Shapes of various kinds
 - Scissors of any shape (stencils)

@@ -423,9 +423,7 @@ main :: proc() {
 			center := (container.lo + container.hi) / 2
 			kn.set_paint(kn.Blue)
 			kn.set_font(font)
-			justify := clamp(0.5 + math.sin(animation_time * 2) * 2, 0, 1)
-			size := kn.add_string(POEM, 12, center, align = {0, 0.5}, justify = justify)
-			kn.add_line({center.x, center.y - size.y / 2}, {center.x, center.y + size.y / 2}, 1)
+			size := kn.add_string(POEM, 12, center, align = {0, 0.5}, justify = 0.5)
 		}
 
 		{
