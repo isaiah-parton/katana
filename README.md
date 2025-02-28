@@ -1,34 +1,12 @@
-## what is this?
-A simple 2D signed-distance function renderer for my apps and games (and maybe yours?)
+## What is this?
+An immediate-mode 2D signed-distance-field renderer built on WGPU.  It's quite young and built very specifically for my needs at the moment, but might turn into something useful to more people.
 
-i'm gonna make docs for it soon
+Things you can expect to find:
+- Shapes of various kinds
+- Scissors of any shape (stencils)
+- Shape combinations like union, intersect, subtract and xor
+- Matrix transforms
+- Fill/stroke with gradients or solid colors
+- Both immediate and baked text with wrapping and justify.  Text is rendered with multi-channel signed distance fields which look sharp at any rotation/scale.
 
-## what can it do?
-- [x] Transforms
-- [x] Scissors
-- Text:
-	- [x] Unicode
-	- [x] Layout baking
-	- [x] Line wrapping
-	- [x] Left/center/right justify
-	- [x] Looks good at any size/rotation/scale
-	- [ ] Internal msdf atlas generation
-	- [ ] Outlines
-- Shapes:
-  - [x] Boxes with rounded corners
-  - [x] Drop shadows for said boxes
-  - [x] Circles
-  - [x] Arcs
-  - [x] Pie (yum)
-  - [x] Quadratic and cubic beziers
-  - [x] Arbitrary polygons
-  - [x] Quad paths (has artifacts)
-  - [x] Font glyphs (using multi-channel sdf fonts)
-- Most shapes can be drawn as an outline
-- Fill styles:
-  - [x] Solid color
-  - [x] Linear dithered gradient
-  - [x] Radial dithered gradient
-  - [x] A wierd simplex noise gradient that I like
-  - [ ] User textures
-  - [ ] Mesh gradients
+Things I will get done eventually include proper custom texture binding and image loading.  The capability is already there, but not really well exposed to the developer.
