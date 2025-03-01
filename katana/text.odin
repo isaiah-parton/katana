@@ -6,6 +6,7 @@ import "core:io"
 import "core:math"
 import "core:math/linalg"
 import "core:mem"
+import "core:strings"
 import "core:unicode"
 import "core:unicode/utf8"
 
@@ -58,8 +59,8 @@ Selectable_Text :: struct {
 	selection:  Text_Selection,
 }
 
-Text_Iterator :: struct {
-	data:       string,
+Text_Builder :: struct {
+	reader:     io.Reader,
 	font:       Font,
 	font_size:  f32,
 	spacing:    f32,
@@ -83,7 +84,7 @@ text_is_empty :: proc(text: ^Text) -> bool {
 }
 
 make_text :: proc(
-	data: string,
+	s: string,
 	size: f32,
 	font: Font = core.current_font,
 	wrap: Text_Wrap = .None,
@@ -94,10 +95,35 @@ make_text :: proc(
 ) -> (
 	text: Text,
 ) {
-	iter: Text_Iterator = {
+	reader: strings.Reader
+	return make_text_with_reader(
+		strings.to_reader(&reader, s),
+		size,
+		font,
+		wrap,
+		justify,
+		max_size,
+		selection,
+		allocator,
+	)
+}
+
+make_text_with_reader :: proc(
+	reader: io.Reader,
+	size: f32,
+	font: Font = core.current_font,
+	wrap: Text_Wrap = .None,
+	justify: f32 = 0,
+	max_size: [2]f32 = math.F32_MAX,
+	selection: Maybe([2]int) = nil,
+	allocator: mem.Allocator = context.temp_allocator,
+) -> (
+	text: Text,
+) {
+	iter: Text_Builder = {
 		font       = font,
 		font_size  = size,
-		data       = data,
+		reader     = reader,
 		max_width  = max_size.x,
 		max_height = max_size.y,
 		wrap       = wrap,
@@ -190,7 +216,11 @@ make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
 	closest: f32 = math.F32_MAX
 
 	text.selection.glyph = -1
-	text.selection.line = clamp(int(point.y / (text.font.line_height * text.font_scale)), 0, len(text.lines) - 1)
+	text.selection.line = clamp(
+		int(point.y / (text.font.line_height * text.font_scale)),
+		0,
+		len(text.lines) - 1,
+	)
 
 	for &line, line_index in text.lines {
 		line_box := Box{line.offset, line.offset + line.size}
@@ -237,7 +267,7 @@ closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int
 
 @(private)
 first_word_in :: proc(
-	text: string,
+	reader: io.Reader,
 	font: Font,
 	size: f32,
 	spacing: f32,
@@ -246,22 +276,22 @@ first_word_in :: proc(
 	width: f32,
 ) {
 	for i := 0; true; {
-		char, bytes := utf8.decode_rune(text[i:])
+		char, bytes, err := io.read_rune(reader)
+		if err == .EOF {
+			end = i + bytes
+			break
+		}
 		if char != '\n' {
 			if glyph, ok := get_font_glyph(font, char); ok {
 				width += glyph.advance * size + spacing
 			}
-		}
-		if char == ' ' || i > len(text) - 1 {
-			end = i + bytes
-			break
 		}
 		i += bytes
 	}
 	return
 }
 
-iterate_text :: proc(iter: ^Text_Iterator) -> bool {
+iterate_text :: proc(iter: ^Text_Builder) -> bool {
 	if iter.at_end {
 		return false
 	}
@@ -275,17 +305,14 @@ iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 	}
 
 	iter.last_char = iter.char
-	if iter.next_index >= len(iter.data) {
+	char_len: int
+	err: io.Error
+	iter.char, char_len, err = io.read_rune(iter.reader)
+	if err == .EOF {
 		iter.at_end = true
+	} else {
+		iter.glyph = find_font_glyph(iter.font, iter.char)
 	}
-	iter.index = iter.next_index
-	bytes: int
-	iter.char, bytes = utf8.decode_rune(iter.data[iter.index:])
-	// if options.obfuscated {
-	// 	iter.char = '*'
-	// }
-	iter.next_index += bytes
-	iter.glyph = find_font_glyph(iter.font, iter.char)
 
 	space := iter.glyph.advance * iter.font_size
 
@@ -294,12 +321,7 @@ iterate_text :: proc(iter: ^Text_Iterator) -> bool {
 		iter.char = 0
 		iter.glyph = {}
 	} else if (iter.wrap == .Word) && (iter.index >= iter.next_word) && (iter.char != ' ') {
-		iter.next_word, space = first_word_in(
-			iter.data[iter.index:],
-			iter.font,
-			iter.font_size,
-			iter.spacing,
-		)
+		iter.next_word, space = first_word_in(iter.reader, iter.font, iter.font_size, iter.spacing)
 	}
 
 	iter.new_line = false
