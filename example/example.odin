@@ -1,6 +1,8 @@
 package katana_example
 
 import "base:runtime"
+import "core:os"
+import "core:path/filepath"
 import "core:fmt"
 import "core:math"
 import "core:math/ease"
@@ -28,6 +30,7 @@ LOREM_IPSUM :: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla e
 SAMPLE_TEXT :: "The quick brown fox jumps over the lazy dog."
 
 main :: proc() {
+	os.set_current_directory(#directory)
 
 	sdl2.Init(sdl2.INIT_VIDEO)
 	defer sdl2.Quit()
@@ -78,7 +81,6 @@ main :: proc() {
 			panic("Unknown error")
 		}
 	}
-
 	wgpu.InstanceRequestAdapter(instance, &{powerPreference = .LowPower}, on_adapter)
 
 	window_width, window_height: i32
@@ -357,7 +359,7 @@ main :: proc() {
 		}
 
 		// Icons
-		{
+		if len(icon_font.glyphs) > 0 {
 			container := get_box(&layout)
 			center := (container.lo + container.hi) / 2
 			radius := f32(SIZE + 5) + math.sin(animation_time * 2) * 10

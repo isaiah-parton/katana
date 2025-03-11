@@ -173,7 +173,10 @@ make_default_font :: proc() {
 		nil,
 		4,
 	)
-	if bitmap_data == nil do return
+	if bitmap_data == nil {
+		fmt.eprintln("Failed to load default font image!")
+		return
+	}
 
 	atlas_source := copy_image_to_atlas(bitmap_data, int(width), int(height))
 

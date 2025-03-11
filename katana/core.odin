@@ -1,8 +1,11 @@
 package katana
 
+import "base:runtime"
 import "core:fmt"
 import "core:time"
 import "vendor:wgpu"
+import "vendor:wgpu/sdl2glue"
+import "vendor:sdl2"
 
 @(private)
 core: Core
@@ -78,6 +81,99 @@ surface_configuration :: proc(
 	return core.renderer.surface_config
 }
 
+Platform :: struct {
+	instance: wgpu.Instance,
+	device: wgpu.Device,
+	adapter: wgpu.Adapter,
+	surface: wgpu.Surface,
+	surface_config: wgpu.SurfaceConfiguration,
+}
+
+destroy_platform :: proc(self: ^Platform) {
+	wgpu.SurfaceRelease(self.surface)
+	wgpu.AdapterRelease(self.adapter)
+	wgpu.DeviceRelease(self.device)
+	wgpu.InstanceRelease(self.instance)
+}
+
+make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
+	platform.instance = wgpu.CreateInstance()
+	if platform.instance == nil {
+		fmt.eprintln("Failed to create instance!")
+	}
+
+	platform.surface = sdl2glue.GetSurface(platform.instance, window)
+	if platform.surface == nil {
+		fmt.eprintln("Failed to create surface!")
+	}
+
+	on_device :: proc "c" (
+		status: wgpu.RequestDeviceStatus,
+		device: wgpu.Device,
+		message: cstring,
+		userdata: rawptr,
+	) {
+		context = runtime.default_context()
+		switch status {
+		case .Success:
+			(^Platform)(userdata).device = device
+		case .Error:
+			fmt.panicf("Unable to aquire device: %s", message)
+		case .Unknown:
+			panic("Unknown error")
+		}
+	}
+
+	on_adapter :: proc "c" (
+		status: wgpu.RequestAdapterStatus,
+		adapter: wgpu.Adapter,
+		message: cstring,
+		userdata: rawptr,
+	) {
+		context = runtime.default_context()
+		switch status {
+		case .Success:
+			(^Platform)(userdata).adapter = adapter
+			info := wgpu.AdapterGetInfo(adapter)
+			fmt.printfln("Using %v on %v", info.backendType, info.description)
+
+			descriptor := device_descriptor()
+			wgpu.AdapterRequestDevice(adapter, &descriptor, on_device, userdata)
+		case .Error:
+			fmt.panicf("Unable to acquire adapter: %s", message)
+		case .Unavailable:
+			panic("Adapter unavailable")
+		case .Unknown:
+			panic("Unknown error")
+		}
+	}
+
+	wgpu.InstanceRequestAdapter(
+		platform.instance,
+		&{powerPreference = .LowPower},
+		on_adapter,
+		&platform,
+	)
+	platform.surface_config = surface_configuration(
+		platform.device,
+		platform.adapter,
+		platform.surface,
+	)
+
+	width, height: i32
+	sdl2.GetWindowSize(window, &width, &height)
+	platform.surface_config.width = u32(width)
+	platform.surface_config.height = u32(height)
+
+	wgpu.SurfaceConfigure(platform.surface, &platform.surface_config)
+
+	return
+}
+
+start_on_platform :: proc(platform: Platform) {
+	start(platform.device, platform.surface)
+}
+
 start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
 	init_renderer_with_device_and_surface(&core.renderer, device, surface)
 
@@ -151,7 +247,7 @@ new_frame :: proc() {
 
 	reset_drawing()
 
-	set_font(core.default_font)
+	set_font(DEFAULT_FONT)
 }
 
 run_time :: proc() -> f32 {
