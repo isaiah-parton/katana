@@ -1,15 +1,15 @@
 package katana_example
 
 import "base:runtime"
-import "core:os"
-import "core:path/filepath"
 import "core:fmt"
 import "core:math"
 import "core:math/ease"
 import "core:math/linalg"
+import "core:os"
+import "core:path/filepath"
 import "core:time"
-import "vendor:stb/image"
 import "vendor:sdl2"
+import "vendor:stb/image"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl2glue"
 
@@ -25,6 +25,7 @@ The wrinkled sea beneath him crawls;
 He watches from his mountain walls,
 And like a thunderbolt he falls.`
 
+
 LOREM_IPSUM :: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla euismod venenatis augue ut vehicula. Sed nec lorem auctor, scelerisque magna nec, efficitur nisl. Mauris in urna vitae lorem fermentum facilisis. Nam sodales libero eleifend eros viverra, vel facilisis quam faucibus.`
 
 SAMPLE_TEXT :: "The quick brown fox jumps over the lazy dog."
@@ -38,67 +39,17 @@ main :: proc() {
 	window := sdl2.CreateWindow("vgo example", 100, 100, 1200, 800, {.SHOWN, .RESIZABLE})
 	defer sdl2.DestroyWindow(window)
 
-	instance := wgpu.CreateInstance()
-	surface := sdl2glue.GetSurface(instance, window)
-
-	on_device :: proc "c" (
-		status: wgpu.RequestDeviceStatus,
-		_device: wgpu.Device,
-		message: cstring,
-		userdata: rawptr,
-	) {
-		context = runtime.default_context()
-		switch status {
-		case .Success:
-			device = _device
-		case .Error:
-			fmt.panicf("Unable to aquire device: %s", message)
-		case .Unknown:
-			panic("Unknown error")
-		}
-	}
-
-	on_adapter :: proc "c" (
-		status: wgpu.RequestAdapterStatus,
-		_adapter: wgpu.Adapter,
-		message: cstring,
-		userdata: rawptr,
-	) {
-		context = runtime.default_context()
-		switch status {
-		case .Success:
-			adapter = _adapter
-			info := wgpu.AdapterGetInfo(adapter)
-			fmt.printfln("Using %v on %v", info.backendType, info.description)
-
-			descriptor := kn.device_descriptor()
-			wgpu.AdapterRequestDevice(adapter, &descriptor, on_device)
-		case .Error:
-			fmt.panicf("Unable to acquire adapter: %s", message)
-		case .Unavailable:
-			panic("Adapter unavailable")
-		case .Unknown:
-			panic("Unknown error")
-		}
-	}
-	wgpu.InstanceRequestAdapter(instance, &{powerPreference = .LowPower}, on_adapter)
-
 	window_width, window_height: i32
 	sdl2.GetWindowSize(window, &window_width, &window_height)
 
-	surface_config := kn.surface_configuration(device, adapter, surface)
-	surface_config.width = u32(window_width)
-	surface_config.height = u32(window_height)
-	wgpu.SurfaceConfigure(surface, &surface_config)
+	platform := kn.make_platform_sdl2glue(window)
+	defer kn.destroy_platform(&platform)
 
-	kn.start(device, surface)
+	kn.start_on_platform(platform)
 	defer kn.shutdown()
 
 	// Load some fonts
-	font, _ := kn.load_font_from_files(
-		"fonts/Lexend-Medium.png",
-		"fonts/Lexend-Medium.json",
-	)
+	font, _ := kn.load_font_from_files("fonts/Lexend-Medium.png", "fonts/Lexend-Medium.json")
 	icon_font, _ := kn.load_font_from_files("fonts/icons.png", "fonts/icons.json")
 
 	//
@@ -150,9 +101,9 @@ main :: proc() {
 				if event.window.event == .RESIZED {
 					window_width, window_height: i32
 					sdl2.GetWindowSize(window, &window_width, &window_height)
-					surface_config.width = u32(window_width)
-					surface_config.height = u32(window_height)
-					wgpu.SurfaceConfigure(surface, &surface_config)
+					platform.surface_config.width = u32(window_width)
+					platform.surface_config.height = u32(window_height)
+					wgpu.SurfaceConfigure(platform.surface, &platform.surface_config)
 					canvas_size = {f32(window_width), f32(window_height)}
 				}
 			}
@@ -275,15 +226,16 @@ main :: proc() {
 						math.TAU * (f32(i) / f32(sides)) -
 						(math.TAU / f32(sides * 2)) +
 						animation_time * 0.5
-					kn.quad_bezier_to(
-						center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20),
-						p,
-					)
+					kn.quad_bezier_to(center + [2]f32{math.cos(b), math.sin(b)} * (radius - 20), p)
 				}
 			}
 			container_center := (container.lo + container.hi) / 2
 			kn.fill_path(
-				kn.make_atlas_sample(image_source, {container_center - radius, container_center + radius}, kn.White)
+				kn.make_atlas_sample(
+					image_source,
+					{container_center - radius, container_center + radius},
+					kn.White,
+				),
 				// kn.make_linear_gradient(
 				// 	center - radius,
 				// 	center + radius,
@@ -377,22 +329,14 @@ main :: proc() {
 				icon_font.glyphs[int(animation_time) % len(icon_font.glyphs)],
 				size,
 				-radius,
-				kn.make_linear_gradient(
-					-radius,
-					radius,
-					GRADIENT_COLORS[0],
-					GRADIENT_COLORS[1],
-				),
+				kn.make_linear_gradient(-radius, radius, GRADIENT_COLORS[0], GRADIENT_COLORS[1]),
 			)
 		}
 
 		{
 			container := get_box(&layout)
 			center := (container.lo + container.hi) / 2
-			size := [2]f32{
-				clamp(1.5 + math.sin(animation_time * 2) * 2, 1, 2),
-				1,
-			} * 90
+			size := [2]f32{clamp(1.5 + math.sin(animation_time * 2) * 2, 1, 2), 1} * 90
 			box := kn.Box{center - size * 0.5, center + size * 0.5}
 			kn.set_paint(kn.DeepBlue)
 			kn.add_box_lines(box, 3, 5)
@@ -406,10 +350,7 @@ main :: proc() {
 		{
 			container := get_box(&layout)
 			center := (container.lo + container.hi) / 2
-			size := [2]f32{
-				2,
-				1,
-			} * 90
+			size := [2]f32{2, 1} * 90
 			box := kn.Box{center - size * 0.5, center + size * 0.5}
 			kn.set_paint(kn.DeepBlue)
 			kn.add_box_lines(box, 3, 5)
@@ -417,7 +358,11 @@ main :: proc() {
 			box.hi -= 4
 			kn.set_paint(kn.Blue)
 			kn.set_font(font)
-			kn.add_string_wrapped(SAMPLE_TEXT, 15 * clamp(1.5 + math.sin(animation_time * 2) * 2, 1, 2), box)
+			kn.add_string_wrapped(
+				SAMPLE_TEXT,
+				15 * clamp(1.5 + math.sin(animation_time * 2) * 2, 1, 2),
+				box,
+			)
 		}
 
 		{
@@ -452,13 +397,7 @@ main :: proc() {
 		{
 			text := "[A] toggle animation\n[Z] toggle fps limit"
 			kn.set_font(font)
-			kn.add_string(
-				text,
-				16,
-				{0, canvas_size.y},
-				align = {0, 1},
-				paint = kn.White,
-			)
+			kn.add_string(text, 16, {0, canvas_size.y}, align = {0, 1}, paint = kn.White)
 		}
 
 		kn.present()
@@ -466,3 +405,4 @@ main :: proc() {
 		free_all(context.temp_allocator)
 	}
 }
+

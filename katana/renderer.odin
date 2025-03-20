@@ -17,13 +17,13 @@ WGPU_Buffer :: struct($T: typeid) {
 	buffer:   wgpu.Buffer,
 	data:     [dynamic]T,
 	capacity: int,
-	label:    cstring,
+	label:    string,
 }
 
 wgpu_buffer_create :: proc(
 	self: ^WGPU_Buffer($T),
 	device: wgpu.Device,
-	label: cstring,
+	label: string,
 	capacity: int,
 ) -> bool {
 	self.label = label
@@ -113,8 +113,8 @@ init_renderer_with_device_and_surface :: proc(
 	renderer.device = device
 	renderer.surface = surface
 	// Know your limits
-	if supported_limits, ok := wgpu.DeviceGetLimits(renderer.device); ok {
-		renderer.device_limits = supported_limits.limits
+	if supported_limits, status := wgpu.DeviceGetLimits(renderer.device); status == .Success {
+		renderer.device_limits = supported_limits
 	}
 	// Get the command queue
 	renderer.queue = wgpu.DeviceGetQueue(renderer.device)
@@ -226,9 +226,9 @@ init_renderer_with_device_and_surface :: proc(
 		renderer.device,
 		&{
 			label = "Shader",
-			nextInChain = &wgpu.ShaderModuleWGSLDescriptor {
-				sType = .ShaderModuleWGSLDescriptor,
-				code = #load("shader.wgsl", cstring),
+			nextInChain = &wgpu.ShaderSourceWGSL {
+				sType = .ShaderSourceWGSL,
+				code = #load("shader.wgsl"),
 			},
 		},
 	)
@@ -292,7 +292,8 @@ present :: proc() {
 
 	surface_texture := wgpu.SurfaceGetCurrentTexture(renderer.surface)
 	switch surface_texture.status {
-	case .Success:
+	case .Error:
+	case .SuccessOptimal, .SuccessSuboptimal:
 	case .Timeout, .Outdated, .Lost:
 		if surface_texture.texture != nil {
 			wgpu.TextureRelease(surface_texture.texture)
@@ -449,3 +450,4 @@ present :: proc() {
 		renderer.timers[.Draw] = time.since(t)
 	}
 }
+

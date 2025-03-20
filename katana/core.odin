@@ -3,9 +3,9 @@ package katana
 import "base:runtime"
 import "core:fmt"
 import "core:time"
+import "vendor:sdl2"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl2glue"
-import "vendor:sdl2"
 
 @(private)
 core: Core
@@ -69,23 +69,31 @@ surface_configuration :: proc(
 	device: wgpu.Device,
 	adapter: wgpu.Adapter,
 	surface: wgpu.Surface,
-) -> wgpu.SurfaceConfiguration {
-	caps := wgpu.SurfaceGetCapabilities(surface, adapter)
-	core.renderer.surface_config = wgpu.SurfaceConfiguration {
-		presentMode = caps.presentModes[0],
-		alphaMode   = caps.alphaModes[0],
+) -> (
+	config: wgpu.SurfaceConfiguration,
+	ok: bool,
+) {
+	caps, status := wgpu.SurfaceGetCapabilities(surface, adapter)
+	if status == .Error {
+		return
+	}
+	config = wgpu.SurfaceConfiguration {
+		presentMode = caps.presentModes[0] if caps.presentModeCount > 0 else {},
+		alphaMode   = caps.alphaModes[0] if caps.alphaModeCount > 0 else {},
 		device      = device,
 		format      = .BGRA8Unorm, //caps.formats[0],
 		usage       = {.RenderAttachment},
 	}
-	return core.renderer.surface_config
+	core.renderer.surface_config = config
+	ok = true
+	return
 }
 
 Platform :: struct {
-	instance: wgpu.Instance,
-	device: wgpu.Device,
-	adapter: wgpu.Adapter,
-	surface: wgpu.Surface,
+	instance:       wgpu.Instance,
+	device:         wgpu.Device,
+	adapter:        wgpu.Adapter,
+	surface:        wgpu.Surface,
 	surface_config: wgpu.SurfaceConfiguration,
 }
 
@@ -110,13 +118,16 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 	on_device :: proc "c" (
 		status: wgpu.RequestDeviceStatus,
 		device: wgpu.Device,
-		message: cstring,
-		userdata: rawptr,
+		message: string,
+		userdata1: rawptr,
+		userdata2: rawptr,
 	) {
 		context = runtime.default_context()
 		switch status {
+		case .InstanceDropped:
+			panic("WGPU instance was dropped!")
 		case .Success:
-			(^Platform)(userdata).device = device
+			(^Platform)(userdata1).device = device
 		case .Error:
 			fmt.panicf("Unable to aquire device: %s", message)
 		case .Unknown:
@@ -127,18 +138,29 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 	on_adapter :: proc "c" (
 		status: wgpu.RequestAdapterStatus,
 		adapter: wgpu.Adapter,
-		message: cstring,
-		userdata: rawptr,
+		message: string,
+		userdata1: rawptr,
+		userdata2: rawptr,
 	) {
 		context = runtime.default_context()
 		switch status {
+		case .InstanceDropped:
+			panic("WGPU instance was dropped!")
 		case .Success:
-			(^Platform)(userdata).adapter = adapter
-			info := wgpu.AdapterGetInfo(adapter)
-			fmt.printfln("Using %v on %v", info.backendType, info.description)
+			(^Platform)(userdata1).adapter = adapter
+			info, status := wgpu.AdapterGetInfo(adapter)
+			if status == .Success {
+				fmt.printfln("Using %v on %v", info.backendType, info.description)
+			} else {
+				fmt.println("Could not get adapter info!")
+			}
 
 			descriptor := device_descriptor()
-			wgpu.AdapterRequestDevice(adapter, &descriptor, on_device, userdata)
+			wgpu.AdapterRequestDevice(
+				adapter,
+				&descriptor,
+				{callback = on_device, userdata1 = userdata1},
+			)
 		case .Error:
 			fmt.panicf("Unable to acquire adapter: %s", message)
 		case .Unavailable:
@@ -151,14 +173,14 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 	wgpu.InstanceRequestAdapter(
 		platform.instance,
 		&{powerPreference = .LowPower},
-		on_adapter,
-		&platform,
+		{callback = on_adapter, userdata1 = &platform},
 	)
-	platform.surface_config = surface_configuration(
+	platform.surface_config, _ = surface_configuration(
 		platform.device,
 		platform.adapter,
 		platform.surface,
 	)
+	core.renderer.surface_config = platform.surface_config
 
 	width, height: i32
 	sdl2.GetWindowSize(window, &width, &height)
@@ -323,3 +345,4 @@ inject_stack :: proc(stack: ^Stack($T, $N), at: int, item: T) -> bool {
 clear_stack :: proc(stack: ^Stack($T, $N)) {
 	stack.height = 0
 }
+
