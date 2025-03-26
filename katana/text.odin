@@ -18,8 +18,8 @@ Text_Justify :: enum {
 
 Text_Wrap :: enum {
 	None,
-	Character,
-	Word,
+	Words,
+	Runes,
 }
 
 Text_Glyph :: struct {
@@ -60,23 +60,29 @@ Selectable_Text :: struct {
 }
 
 Text_Builder :: struct {
-	reader:     io.Reader,
-	font:       Font,
-	font_size:  f32,
-	spacing:    f32,
-	max_width:  f32,
-	max_height: f32,
-	wrap:       Text_Wrap,
-	glyph:      Font_Glyph,
-	line_width: f32,
-	new_line:   bool,
-	at_end:     bool,
-	offset:     [2]f32,
-	last_char:  rune,
-	char:       rune,
-	next_word:  int,
-	index:      int,
-	next_index: int,
+	reader:          io.Reader,
+	font:            Font,
+	glyph:           Font_Glyph,
+	line:            Text_Line,
+	offset:          [2]f32,
+	size:            [2]f32,
+	// Index of last glyph to wrap when overflow happens
+	wrap_to_glyph:   int,
+	index:           int,
+	next_index:      int,
+	font_size:       f32,
+	spacing:         f32,
+	max_width:       f32,
+	max_height:      f32,
+	justify:         f32,
+	last_char:       rune,
+	char:            rune,
+	is_white_space:  bool,
+	was_white_space: bool,
+	at_end:          bool,
+	wrap:            Text_Wrap,
+	glyphs:          [dynamic]Text_Glyph,
+	lines:           [dynamic]Text_Line,
 }
 
 text_is_empty :: proc(text: ^Text) -> bool {
@@ -96,7 +102,7 @@ make_text :: proc(
 	text: Text,
 ) {
 	reader: strings.Reader
-	return make_text_with_reader(
+	text = make_text_with_reader(
 		strings.to_reader(&reader, s),
 		size,
 		font,
@@ -106,6 +112,7 @@ make_text :: proc(
 		selection,
 		allocator,
 	)
+	return
 }
 
 make_text_with_reader :: proc(
@@ -120,90 +127,124 @@ make_text_with_reader :: proc(
 ) -> (
 	text: Text,
 ) {
-	iter: Text_Builder = {
+	b := Text_Builder {
 		font       = font,
 		font_size  = size,
 		reader     = reader,
 		max_width  = max_size.x,
 		max_height = max_size.y,
 		wrap       = wrap,
+		glyphs     = make([dynamic]Text_Glyph, allocator = allocator),
+		lines      = make([dynamic]Text_Line, allocator = allocator),
 	}
-
-	glyphs := make([dynamic]Text_Glyph, allocator = allocator)
-	lines := make([dynamic]Text_Line, allocator = allocator)
-
-	line: Text_Line = {
-		glyph_range = {},
-	}
-	line_height := (font.ascend - font.descend) * size
 
 	text.font_scale = size
-	text.font = font
 
-	for iterate_text(&iter) {
-		if iter.new_line || iter.at_end {
-			current_line := len(lines)
-
-			line.glyph_range[1] = len(glyphs)
-			line.size = {iter.line_width, font.line_height * size}
-			line_offset: [2]f32
-			line_offset.x -= line.size.x * justify
-
-			for &glyph in glyphs[line.glyph_range[0]:line.glyph_range[1]] {
-				glyph.offset += line_offset
-			}
-			line.offset += line_offset
-
-			line.glyph_range[1] -= int(iter.new_line && !iter.at_end)
-
-			new_line := Text_Line {
-				glyph_range = {0 = len(glyphs)},
-				offset = iter.offset,
-			}
-
-			text.size.x = max(text.size.x, line.size.x)
-			text.size.y += font.line_height * size
-			append(&lines, line)
-
-			line = new_line
+	wrap_to_last_word :: proc(b: ^Text_Builder) {
+		descent := b.font.line_height * b.font_size
+		move_left := b.glyphs[b.wrap_to_glyph].offset.x
+		word_width: f32
+		for &glyph in b.glyphs[b.wrap_to_glyph:] {
+			glyph.offset.x -= move_left
+			glyph.offset.y += descent
+			word_width += glyph.advance * b.font_size
 		}
-
-		glyph_index := len(glyphs)
-		line_index := len(lines)
-		if selection, ok := selection.?; ok {
-			if selection.x > selection.y {
-				selection = selection.yx
-			}
-			if selection[0] == iter.index {
-				text.selection_glyphs[0] = glyph_index
-				text.selection_lines[0] = line_index
-			}
-			if selection[1] == iter.index {
-				text.selection_glyphs[1] = glyph_index
-				text.selection_lines[1] = line_index
-			}
-		}
-
-		if iter.at_end {
-			iter.glyph = {}
-			iter.char = 0
-		}
-
-		// Add a glyph last so that `len(core.text_glyphs)` is the index of this glyph
-		append(
-			&glyphs,
-			Text_Glyph {
-				line = line_index,
-				glyph = iter.glyph,
-				code = iter.char,
-				index = iter.index,
-				offset = iter.offset,
-			},
-		)
+		b.offset.x += word_width
+		b.line.size.x += word_width
 	}
 
-	text.glyphs = glyphs[:]
-	text.lines = lines[:]
+	end_line_on_glyph :: proc(b: ^Text_Builder, index: int) {
+		b.line.glyph_range[1] = index
+		b.line.size = {b.glyphs[index].offset.x, b.font.line_height * b.font_size}
+		line_offset: [2]f32
+		line_offset.x -= b.line.size.x * b.justify
+
+		for &glyph in b.glyphs[b.line.glyph_range[0]:b.line.glyph_range[1]] {
+			glyph.offset += line_offset
+		}
+		b.line.offset += line_offset
+
+		b.offset.x = 0
+		b.offset.y += b.font.line_height * b.font_size
+		new_line := Text_Line {
+			glyph_range = {0 = index},
+			offset = b.offset,
+		}
+
+		b.size.x = max(b.size.x, b.line.size.x)
+		b.size.y += b.font.line_height * b.font_size
+		append(&b.lines, b.line)
+
+		b.line = new_line
+	}
+
+	for !b.at_end {
+		if b.offset.y >= b.max_height {
+			break
+		}
+
+		b.index = b.next_index
+
+		if b.char != 0 {
+			b.offset.x += b.glyph.advance * b.font_size + b.spacing
+		}
+
+		err: io.Error
+
+		b.last_char = b.char
+		b.char, _, err = io.read_rune(b.reader, &b.next_index)
+
+		b.was_white_space = b.is_white_space
+		b.is_white_space = unicode.is_white_space(b.char)
+
+		if err == .EOF {
+			b.at_end = true
+			b.glyph = {}
+			b.char = 0
+		} else {
+			b.glyph, _ = find_font_glyph(b.font, b.char)
+		}
+
+		current_line := len(b.lines)
+
+		next_glyph_index := len(b.glyphs)
+		append(
+			&b.glyphs,
+			Text_Glyph {
+				line = current_line,
+				glyph = b.glyph,
+				code = b.char,
+				index = b.index,
+				offset = b.offset,
+			},
+		)
+
+		b.line.size.x += b.glyph.advance * b.font_size + b.spacing * f32(i32(!b.at_end))
+		line_overflow := b.line.size.x > b.max_width
+
+		if b.wrap == .Words {
+			if b.is_white_space || b.at_end {
+				if !b.was_white_space &&
+				   line_overflow &&
+				   b.wrap_to_glyph > 0 &&
+				   b.glyphs[b.wrap_to_glyph].code != '\n' {
+					end_line_on_glyph(&b, b.wrap_to_glyph)
+					wrap_to_last_word(&b)
+					b.wrap_to_glyph = next_glyph_index
+				}
+			} else if b.was_white_space {
+				b.wrap_to_glyph = next_glyph_index
+			}
+		}
+
+		if b.char == '\n' || b.at_end {
+			end_line_on_glyph(&b, next_glyph_index)
+		}
+	}
+
+	text.glyphs = b.glyphs[:]
+	text.lines = b.lines[:]
+	text.size = b.size
 
 	return
 }
@@ -233,29 +274,28 @@ make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
 	}
 
 	line := &text.lines[text.selection.line]
-	for &glyph, glyph_index in text.glyphs[line.glyph_range.x:min(line.glyph_range.y + 1, len(text.glyphs))] {
+	for &glyph, glyph_index in text.glyphs[line.glyph_range.x:line.glyph_range.y + 1] {
 		distance := abs(glyph.offset.x - point.x)
 		if distance < closest {
 			closest = distance
 			text.selection.index = glyph.index
-			text.selection.glyph = glyph_index
+			text.selection.glyph = int(glyph_index)
 		}
-		if glyph_index == len(text.glyphs) - 1 {
-			text.selection.line = min(text.selection.line, glyph.line)
-		}
+		// TODO: Remove
+		// if glyph_index == len(text.glyphs) - 1 {
+		// 	text.selection.line = min(text.selection.line, glyph.line)
+		// }
 	}
 
 	return text
 }
 
-find_font_glyph :: proc(font: Font, char: rune) -> Font_Glyph {
-	glyph: Font_Glyph
-	ok: bool
+find_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
 	glyph, ok = get_font_glyph(font, char)
 	if !ok && char > unicode.MAX_LATIN1 && core.fallback_font != nil {
 		glyph, ok = get_font_glyph(core.fallback_font.?, char)
 	}
-	return glyph
+	return
 }
 
 @(private)
@@ -263,96 +303,6 @@ closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int
 	line_count := int(math.floor(text_height / line_height))
 	mouse_line := int(offset / line_height)
 	return mouse_line if (mouse_line >= 0 && mouse_line < line_count) else nil
-}
-
-@(private)
-first_word_in :: proc(
-	reader: io.Reader,
-	font: Font,
-	size: f32,
-	spacing: f32,
-) -> (
-	end: int,
-	width: f32,
-) {
-	for i := 0; true; {
-		char, bytes, err := io.read_rune(reader)
-		if err == .EOF {
-			end = i + bytes
-			break
-		}
-		if char != '\n' {
-			if glyph, ok := get_font_glyph(font, char); ok {
-				width += glyph.advance * size + spacing
-			}
-		}
-		i += bytes
-	}
-	return
-}
-
-iterate_text :: proc(iter: ^Text_Builder) -> bool {
-	if iter.at_end {
-		return false
-	}
-
-	if iter.new_line {
-		iter.line_width = iter.glyph.advance * iter.font_size + iter.spacing
-	}
-
-	if iter.char != 0 {
-		iter.offset.x += iter.glyph.advance * iter.font_size + iter.spacing
-	}
-
-	iter.last_char = iter.char
-	char_len: int
-	err: io.Error
-	iter.char, char_len, err = io.read_rune(iter.reader)
-	if err == .EOF {
-		iter.at_end = true
-	} else {
-		iter.glyph = find_font_glyph(iter.font, iter.char)
-	}
-
-	space := iter.glyph.advance * iter.font_size
-
-	if iter.at_end {
-		iter.index = iter.next_index
-		iter.char = 0
-		iter.glyph = {}
-	} else if (iter.wrap == .Word) && (iter.index >= iter.next_word) && (iter.char != ' ') {
-		iter.next_word, space = first_word_in(iter.reader, iter.font, iter.font_size, iter.spacing)
-	}
-
-	iter.new_line = false
-
-	if iter.last_char == '\n' {
-		iter.new_line = true
-	} else {
-		if iter.line_width + space > iter.max_width {
-			if iter.wrap == .None {
-				iter.at_end = true
-			} else {
-				iter.new_line = true
-			}
-		}
-	}
-
-	if iter.new_line {
-		iter.offset.x = 0
-		iter.offset.y += iter.font.line_height * iter.font_size
-		if iter.offset.y + iter.font.line_height * iter.font_size >= iter.max_height {
-			iter.at_end = true
-			return false
-		}
-	} else {
-		iter.line_width += iter.glyph.advance * iter.font_size
-		if !iter.at_end {
-			iter.line_width += iter.spacing
-		}
-	}
-
-	return true
 }
 
 add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
@@ -416,7 +366,7 @@ add_string_wrapped :: proc(
 		size,
 		font = core.current_font,
 		max_size = box.hi - box.lo,
-		wrap = .Character,
+		wrap = .Words,
 		justify = align.x,
 	)
 	add_text(text, math.lerp(box.lo, box.hi, align), paint)
@@ -472,3 +422,4 @@ add_text_scaffold :: proc(text: Text, origin: [2]f32) {
 		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = Red)
 	}
 }
+
