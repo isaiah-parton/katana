@@ -30,11 +30,6 @@ Text_Glyph :: struct {
 	line:        int,
 }
 
-@(init)
-asdf :: proc() {
-	fmt.println(size_of(Text_Glyph))
-}
-
 Text_Line :: struct {
 	offset:      [2]f32,
 	size:        [2]f32,
@@ -43,24 +38,30 @@ Text_Line :: struct {
 }
 
 Text :: struct {
-	font:             Font,
-	font_scale:       f32,
-	glyphs:           []Text_Glyph,
-	lines:            []Text_Line,
-	size:             [2]f32,
-	selection_lines:  [2]int,
-	selection_glyphs: [2]int,
+	font:       Font,
+	font_scale: f32,
+	glyphs:     []Text_Glyph,
+	lines:      []Text_Line,
+	size:       [2]f32,
 }
 
-Text_Selection :: struct {
+Text_Point_Contact :: struct {
 	valid: bool,
 	index: int,
 	line:  int,
 	glyph: int,
 }
 
+Text_Selection :: struct {
+	first_glyph: int,
+	last_glyph:  int,
+	first_line:  int,
+	last_line:   int,
+}
+
 Selectable_Text :: struct {
 	using text: Text,
+	contact:    Text_Point_Contact,
 	selection:  Text_Selection,
 }
 
@@ -101,7 +102,6 @@ make_text :: proc(
 	wrap: Text_Wrap = .None,
 	justify: f32 = 0,
 	max_size: [2]f32 = math.F32_MAX,
-	selection: Maybe([2]int) = nil,
 	allocator: mem.Allocator = context.temp_allocator,
 ) -> (
 	text: Text,
@@ -114,7 +114,6 @@ make_text :: proc(
 		wrap,
 		justify,
 		max_size,
-		selection,
 		allocator,
 	)
 	return
@@ -127,7 +126,6 @@ make_text_with_reader :: proc(
 	wrap: Text_Wrap = .None,
 	justify: f32 = 0,
 	max_size: [2]f32 = math.F32_MAX,
-	selection: Maybe([2]int) = nil,
 	allocator: mem.Allocator = context.temp_allocator,
 ) -> (
 	text: Text,
@@ -155,15 +153,31 @@ make_text_with_reader :: proc(
 		for &glyph in b.glyphs[b.wrap_to_glyph:] {
 			glyph.offset.x -= move_left
 			glyph.offset.y += descent
+			glyph.line += 1
 			word_width += glyph.advance * b.font_size
 		}
 		b.offset.x += word_width
 		b.line.size.x += word_width
 	}
 
+	start_line_on_glyph :: proc(b: ^Text_Builder, index: int) {
+		b.offset.y += b.font.line_height * b.font_size
+		b.line = Text_Line {
+			first_glyph = index,
+			offset      = b.offset,
+		}
+	}
+
 	end_line_on_glyph :: proc(b: ^Text_Builder, index: int) {
+		if index < 0 {
+			return
+		}
 		b.line.last_glyph = index
-		b.line.size = {b.glyphs[index].offset.x, b.font.line_height * b.font_size}
+		glyph := b.glyphs[index]
+		b.line.size = {
+			glyph.offset.x + glyph.advance * b.font_size,
+			b.font.line_height * b.font_size,
+		}
 		line_offset := b.line.size.x * b.justify
 
 		for &glyph in b.glyphs[b.line.first_glyph:index] {
@@ -172,21 +186,15 @@ make_text_with_reader :: proc(
 		b.line.offset.x += line_offset
 
 		b.offset.x = 0
-		b.offset.y += b.font.line_height * b.font_size
-		new_line := Text_Line {
-			first_glyph = index,
-			offset      = b.offset,
-		}
 
 		b.size.x = max(b.size.x, b.line.size.x)
 		b.size.y += b.font.line_height * b.font_size
 		append(&b.lines, b.line)
-
-		b.line = new_line
 	}
 
 	for !b.at_end {
 		if b.offset.y >= b.max_height {
+			// end_line_on_glyph(&b, len(b.glyphs) - 1)
 			break
 		}
 
@@ -228,36 +236,53 @@ make_text_with_reader :: proc(
 		if b.wrap == .Words {
 			if b.is_white_space || b.at_end {
 				if !b.was_white_space && b.line.size.x > b.max_width && b.wrap_to_glyph > 0 {
-					end_line_on_glyph(&b, b.wrap_to_glyph)
+					end_line_on_glyph(&b, b.wrap_to_glyph - 1)
+					start_line_on_glyph(&b, b.wrap_to_glyph)
 					wrap_to_last_word(&b)
+					if b.offset.y >= b.max_height {
+						end_line_on_glyph(&b, next_glyph_index)
+						break
+					}
 				}
 			} else if b.was_white_space {
 				b.wrap_to_glyph = next_glyph_index
 			}
 		}
 
-		if b.char == '\n' || b.at_end {
-			end_line_on_glyph(&b, next_glyph_index)
+		if b.char == '\n' {
+			if b.last_char != 0 {
+				end_line_on_glyph(&b, next_glyph_index - 1)
+				start_line_on_glyph(&b, next_glyph_index)
+			}
+		} else {
+			if b.at_end {
+				end_line_on_glyph(&b, next_glyph_index)
+			}
 		}
 	}
 
 	text.glyphs = b.glyphs[:]
 	text.lines = b.lines[:]
 	text.size = b.size
+	text.font_scale = size
+	text.font = font
 
 	return
 }
 
-make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
+make_selectable :: proc(
+	text: Text,
+	point: [2]f32,
+	selection_min, selection_max: int,
+) -> Selectable_Text {
 	text := Selectable_Text {
 		text = text,
 	}
 
 	closest: f32 = math.F32_MAX
 
-	text.selection.glyph = -1
-	text.selection.line = clamp(
-		int(point.y / (text.font.line_height * text.font_scale)),
+	text.contact.line = clamp(
+		int(point.y / f32(text.font.line_height * text.font_scale)),
 		0,
 		len(text.lines) - 1,
 	)
@@ -268,22 +293,30 @@ make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
 		   point.x < line_box.hi.x &&
 		   point.y >= line_box.lo.y &&
 		   point.y < line_box.hi.y {
-			text.selection.valid = true
+			text.contact.valid = true
+			break
 		}
 	}
 
-	line := &text.lines[text.selection.line]
+	for &glyph, glyph_index in text.glyphs {
+		if glyph.index == selection_min {
+			text.selection.first_glyph = glyph_index
+			text.selection.first_line = glyph.line
+		}
+		if glyph.index == selection_max {
+			text.selection.last_glyph = glyph_index
+			text.selection.last_line = glyph.line
+		}
+	}
+
+	line := &text.lines[text.contact.line]
 	for &glyph, glyph_index in text.glyphs[line.first_glyph:line.last_glyph + 1] {
 		distance := abs(glyph.offset.x - point.x)
 		if distance < closest {
 			closest = distance
-			text.selection.index = glyph.index
-			text.selection.glyph = int(glyph_index)
+			text.contact.index = glyph.index
+			text.contact.glyph = glyph_index
 		}
-		// TODO: Remove
-		// if glyph_index == len(text.glyphs) - 1 {
-		// 	text.selection.line = min(text.selection.line, glyph.line)
-		// }
 	}
 
 	return text

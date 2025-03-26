@@ -28,6 +28,7 @@ import "core:math"
 import "core:math/linalg"
 import "core:mem"
 import "core:reflect"
+import "core:testing"
 
 import "vendor:wgpu"
 
@@ -73,7 +74,7 @@ Paint :: struct #align (8) {
 	cv1:   [2]f32,
 	cv2:   [2]f32,
 	cv3:   [2]f32,
-	pad0: [2]u32,
+	pad0:  [2]u32,
 	col0:  [4]f32,
 	col1:  [4]f32,
 	col2:  [4]f32,
@@ -104,7 +105,7 @@ Scissor :: struct {
 }
 
 @(test)
-test_gpu_structs :: proc() {
+test_gpu_structs :: proc(t: ^testing.T) {
 	assert(reflect.struct_field_by_name(Paint, "kind").offset == 0)
 	assert(reflect.struct_field_by_name(Paint, "cv0").offset == 8)
 	assert(reflect.struct_field_by_name(Paint, "cv1").offset == 16)
@@ -154,7 +155,7 @@ current_scissor :: proc() -> Maybe(Scissor) {
 	return nil
 }
 
-@(deferred_none=enable_scissor)
+@(deferred_none = enable_scissor)
 disable_scissor :: proc() -> bool {
 	core.disable_scissor = true
 	return core.disable_scissor
@@ -201,10 +202,7 @@ make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -
 }
 
 make_wheel_gradient :: proc(center: [2]f32) -> Paint {
-	return Paint {
-		kind = .Wheel_Gradient,
-		cv0 = center,
-	}
+	return Paint{kind = .Wheel_Gradient, cv0 = center}
 }
 
 make_tri_gradient :: proc(points: [3][2]f32, colors: [3]Color) -> Paint {
@@ -220,10 +218,7 @@ make_tri_gradient :: proc(points: [3][2]f32, colors: [3]Color) -> Paint {
 }
 
 make_atlas_sample :: proc(source, target: Box, tint: Color) -> Paint {
-	source := Box{
-		source.lo / core.atlas_size,
-		source.hi / core.atlas_size,
-	}
+	source := Box{source.lo / core.atlas_size, source.hi / core.atlas_size}
 	return Paint {
 		kind = .Atlas_Sample,
 		cv0 = source.lo,
@@ -312,7 +307,8 @@ set_texture :: proc(texture: wgpu.Texture) {
 @(private)
 append_draw_call :: proc() {
 	if core.current_draw_call != nil {
-		core.current_draw_call.shape_count = len(core.renderer.shapes.data) - core.current_draw_call.first_shape
+		core.current_draw_call.shape_count =
+			len(core.renderer.shapes.data) - core.current_draw_call.first_shape
 	}
 	append(
 		&core.draw_calls,
@@ -326,7 +322,8 @@ append_draw_call :: proc() {
 }
 
 set_draw_order :: proc(index: int) {
-	if core.current_draw_call != nil && core.current_draw_call.first_shape == len(core.renderer.shapes.data) {
+	if core.current_draw_call != nil &&
+	   core.current_draw_call.first_shape == len(core.renderer.shapes.data) {
 		core.current_draw_call.index = index
 		return
 	}
@@ -339,3 +336,4 @@ set_draw_order :: proc(index: int) {
 get_draw_order :: proc() -> int {
 	return core.draw_call_index
 }
+

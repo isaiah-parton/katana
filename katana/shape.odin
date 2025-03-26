@@ -6,7 +6,6 @@ import "core:math/ease"
 import "core:math/linalg"
 import "core:time"
 
-// These should be self-explanitory
 Shape_Kind :: enum u32 {
 	None,
 	Circle,
@@ -30,7 +29,6 @@ Shape_Outline :: enum u32 {
 	Glow,
 }
 
-// Operation for when shapes interact
 Shape_Mode :: enum u32 {
 	Union,
 	Subtraction,
@@ -115,7 +113,11 @@ make_pie :: proc(center: [2]f32, from, to, radius: f32) -> Shape {
 // Each nth shape affects the shape at n+1
 //
 // This can only be done to shapes that have not yet been added as they must all share the same transform.
-add_linked_shapes :: proc(shapes: ..Shape, mode: Shape_Mode = .Union, paint: Paint_Option = nil) -> u32 {
+add_linked_shapes :: proc(
+	shapes: ..Shape,
+	mode: Shape_Mode = .Union,
+	paint: Paint_Option = nil,
+) -> u32 {
 	shape: Shape
 	bounds := Box{math.F32_MAX, 0}
 	for i := len(shapes) - 1; i > 0; i -= 1 {
@@ -282,7 +284,9 @@ paint_index_from_option :: proc(option: Paint_Option) -> Paint_Index {
 	case Paint:
 		return add_paint(v)
 	case Color:
-		return add_paint(Paint{kind = .Solid_Color, col0 = normalize_color(v) * {1.0, 1.0, 1.0, core.opacity}})
+		return add_paint(
+			Paint{kind = .Solid_Color, col0 = normalize_color(v) * {1.0, 1.0, 1.0, core.opacity}},
+		)
 	}
 	return core.paint
 }
@@ -363,7 +367,7 @@ add_lines :: proc(
 	}
 	switch join_style {
 	case .Round:
-		for i in 0..<len(points) - 1 {
+		for i in 0 ..< len(points) - 1 {
 			add_line(points[i], points[i + 1], width, paint)
 		}
 	case .Miter:
@@ -400,12 +404,14 @@ add_lines :: proc(
 				width := width / 2
 				line := linalg.normalize(p2 - p1)
 				normal := linalg.normalize([2]f32{-line.y, line.x})
-				tangent2 := line if p2 == p3 else linalg.normalize(linalg.normalize(p3 - p2) + line)
+				tangent2 :=
+					line if p2 == p3 else linalg.normalize(linalg.normalize(p3 - p2) + line)
 				miter2: [2]f32 = {-tangent2.y, tangent2.x}
 				dot2 := linalg.dot(normal, miter2)
 				// Start of segment
 				if i == 0 {
-					tangent1 := line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
+					tangent1 :=
+						line if p0 == p1 else linalg.normalize(linalg.normalize(p1 - p0) + line)
 					miter1: [2]f32 = {-tangent1.y, tangent1.x}
 					dot1 := linalg.dot(normal, miter1)
 					v0 = p1 - (width / dot1) * miter1
@@ -474,12 +480,14 @@ add_cubic_bezier :: proc(a, b, c, d: [2]f32, width: f32, paint: Paint_Option) {
 }
 
 add_polygon :: proc(vertices: [][2]f32, paint: Paint_Option = nil) {
-	add_shape(Shape {
-		kind  = .Polygon,
-		start = add_vertices(..vertices),
-		count = u32(len(vertices)),
-		paint = paint_index_from_option(paint),
-	})
+	add_shape(
+		Shape {
+			kind = .Polygon,
+			start = add_vertices(..vertices),
+			count = u32(len(vertices)),
+			paint = paint_index_from_option(paint),
+		},
+	)
 }
 
 add_polygon_lines :: proc(vertices: [][2]f32, width: f32 = 1, paint: Paint_Option = nil) {
@@ -509,7 +517,13 @@ add_pie_lines :: proc(center: [2]f32, from, to, radius: f32, width: f32, paint: 
 	add_shape(shape)
 }
 
-add_arc :: proc(center: [2]f32, from, to: f32, inner, outer: f32, square: bool = false, paint: Paint_Option = nil) {
+add_arc :: proc(
+	center: [2]f32,
+	from, to: f32,
+	inner, outer: f32,
+	square: bool = false,
+	paint: Paint_Option = nil,
+) {
 	shape := make_arc(center, from, to, inner, outer, square)
 	shape.paint = paint_index_from_option(paint)
 	add_shape(shape)
@@ -545,7 +559,13 @@ add_box :: proc(box: Box, radius: [4]f32 = {}, paint: Paint_Option = nil) {
 	add_shape(shape)
 }
 
-add_box_lines :: proc(box: Box, width: f32, radius: [4]f32 = {}, paint: Paint_Option = nil, outline: Shape_Outline = .Inner_Stroke) {
+add_box_lines :: proc(
+	box: Box,
+	width: f32,
+	radius: [4]f32 = {},
+	paint: Paint_Option = nil,
+	outline: Shape_Outline = .Inner_Stroke,
+) {
 	shape := make_box(box, radius)
 	shape.outline = outline
 	shape.width = width
@@ -575,7 +595,13 @@ add_spinner :: proc(center: [2]f32, radius: f32, color: Color) {
 	add_arc(center, from, to, radius - width, radius, paint = color)
 }
 
-add_arrow :: proc(pos: [2]f32, scale: f32, thickness: f32, angle: f32 = 0, paint: Paint_Option = nil) {
+add_arrow :: proc(
+	pos: [2]f32,
+	scale: f32,
+	thickness: f32,
+	angle: f32 = 0,
+	paint: Paint_Option = nil,
+) {
 	push_matrix()
 	defer pop_matrix()
 	translate(pos)
@@ -605,3 +631,4 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
+
