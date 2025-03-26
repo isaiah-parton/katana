@@ -24,17 +24,22 @@ Text_Wrap :: enum {
 
 Text_Glyph :: struct {
 	using glyph: Font_Glyph,
+	offset:      [2]f32,
 	code:        rune,
 	index:       int,
 	line:        int,
-	offset:      [2]f32,
+}
+
+@(init)
+asdf :: proc() {
+	fmt.println(size_of(Text_Glyph))
 }
 
 Text_Line :: struct {
 	offset:      [2]f32,
 	size:        [2]f32,
-	index_range: [2]int,
-	glyph_range: [2]int,
+	first_glyph: int,
+	last_glyph:  int,
 }
 
 Text :: struct {
@@ -134,15 +139,18 @@ make_text_with_reader :: proc(
 		max_width  = max_size.x,
 		max_height = max_size.y,
 		wrap       = wrap,
-		glyphs     = make([dynamic]Text_Glyph, allocator = allocator),
-		lines      = make([dynamic]Text_Line, allocator = allocator),
+		glyphs     = make([dynamic]Text_Glyph, len = 0, cap = 64, allocator = allocator),
+		lines      = make([dynamic]Text_Line, len = 0, cap = 8, allocator = allocator),
 	}
 
 	text.font_scale = size
 
 	wrap_to_last_word :: proc(b: ^Text_Builder) {
-		descent := b.font.line_height * b.font_size
 		move_left := b.glyphs[b.wrap_to_glyph].offset.x
+		if move_left == 0 {
+			return
+		}
+		descent := b.font.line_height * b.font_size
 		word_width: f32
 		for &glyph in b.glyphs[b.wrap_to_glyph:] {
 			glyph.offset.x -= move_left
@@ -154,21 +162,20 @@ make_text_with_reader :: proc(
 	}
 
 	end_line_on_glyph :: proc(b: ^Text_Builder, index: int) {
-		b.line.glyph_range[1] = index
+		b.line.last_glyph = index
 		b.line.size = {b.glyphs[index].offset.x, b.font.line_height * b.font_size}
-		line_offset: [2]f32
-		line_offset.x -= b.line.size.x * b.justify
+		line_offset := b.line.size.x * b.justify
 
-		for &glyph in b.glyphs[b.line.glyph_range[0]:b.line.glyph_range[1]] {
-			glyph.offset += line_offset
+		for &glyph in b.glyphs[b.line.first_glyph:index] {
+			glyph.offset.x += line_offset
 		}
-		b.line.offset += line_offset
+		b.line.offset.x += line_offset
 
 		b.offset.x = 0
 		b.offset.y += b.font.line_height * b.font_size
 		new_line := Text_Line {
-			glyph_range = {0 = index},
-			offset = b.offset,
+			first_glyph = index,
+			offset      = b.offset,
 		}
 
 		b.size.x = max(b.size.x, b.line.size.x)
@@ -194,24 +201,21 @@ make_text_with_reader :: proc(
 		b.last_char = b.char
 		b.char, _, err = io.read_rune(b.reader, &b.next_index)
 
-		b.was_white_space = b.is_white_space
-		b.is_white_space = unicode.is_white_space(b.char)
-
 		if err == .EOF {
 			b.at_end = true
 			b.glyph = {}
 			b.char = 0
 		} else {
 			b.glyph, _ = find_font_glyph(b.font, b.char)
+			b.was_white_space = b.is_white_space
+			b.is_white_space = unicode.is_white_space(b.char)
 		}
-
-		current_line := len(b.lines)
 
 		next_glyph_index := len(b.glyphs)
 		append(
 			&b.glyphs,
 			Text_Glyph {
-				line = current_line,
+				line = len(b.lines),
 				glyph = b.glyph,
 				code = b.char,
 				index = b.index,
@@ -220,17 +224,12 @@ make_text_with_reader :: proc(
 		)
 
 		b.line.size.x += b.glyph.advance * b.font_size + b.spacing * f32(i32(!b.at_end))
-		line_overflow := b.line.size.x > b.max_width
 
 		if b.wrap == .Words {
 			if b.is_white_space || b.at_end {
-				if !b.was_white_space &&
-				   line_overflow &&
-				   b.wrap_to_glyph > 0 &&
-				   b.glyphs[b.wrap_to_glyph].code != '\n' {
+				if !b.was_white_space && b.line.size.x > b.max_width && b.wrap_to_glyph > 0 {
 					end_line_on_glyph(&b, b.wrap_to_glyph)
 					wrap_to_last_word(&b)
-					b.wrap_to_glyph = next_glyph_index
 				}
 			} else if b.was_white_space {
 				b.wrap_to_glyph = next_glyph_index
@@ -274,7 +273,7 @@ make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
 	}
 
 	line := &text.lines[text.selection.line]
-	for &glyph, glyph_index in text.glyphs[line.glyph_range.x:line.glyph_range.y + 1] {
+	for &glyph, glyph_index in text.glyphs[line.first_glyph:line.last_glyph + 1] {
 		distance := abs(glyph.offset.x - point.x)
 		if distance < closest {
 			closest = distance
@@ -292,8 +291,8 @@ make_selectable :: proc(text: Text, point: [2]f32) -> Selectable_Text {
 
 find_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
 	glyph, ok = get_font_glyph(font, char)
-	if !ok && char > unicode.MAX_LATIN1 && core.fallback_font != nil {
-		glyph, ok = get_font_glyph(core.fallback_font.?, char)
+	if !ok {
+		glyph, ok = get_font_glyph(core.fallback_font, char)
 	}
 	return
 }

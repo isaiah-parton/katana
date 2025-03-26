@@ -155,7 +155,7 @@ get_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) 
 	index := int(char - font.first_rune)
 	ok = index >= 0 && index < len(font.glyphs)
 	if !ok do return
-	glyph = font.glyphs[index]
+	#no_bounds_check glyph = font.glyphs[index]
 	return
 }
 

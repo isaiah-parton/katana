@@ -18,8 +18,8 @@ import kn "../katana"
 adapter: wgpu.Adapter
 device: wgpu.Device
 
-POEM :: `He clasps the crag with crooked hands;
-Close to the sun in lonely lands,
+POEM :: `He clasps the  crag  with  crooked  hands;
+Close to the sun in lonely  lands,
 Ring'd with the azure world, he stands.
 The wrinkled sea beneath him crawls;
 He watches from his mountain walls,
@@ -31,6 +31,10 @@ LOREM_IPSUM :: `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla e
 SAMPLE_TEXT :: "The quick brown fox jumps over the lazy dog."
 
 State :: struct {
+	last_second_time:              time.Time,
+	average_duration:              f64,
+	sum_duration:                  f64,
+	frames_this_second:            int,
 	limit_fps:                     bool,
 	animate:                       bool,
 	enable_glyph_gamma_correction: bool,
@@ -414,7 +418,17 @@ main :: proc() {
 		box := kn.Box{center - size, center + size}
 
 		kn.add_box(box, paint = kn.Color{50, 50, 50, 255})
+		t := time.now()
 		text := kn.make_text(POEM, 20, wrap = .Words, max_size = box.hi - box.lo)
+		kn.add_string(fmt.tprintf("%.2f", state.average_duration), 16, {0, 20}, paint = kn.White)
+		state.sum_duration += time.duration_microseconds(time.since(t))
+		state.frames_this_second += 1
+		if time.since(state.last_second_time) >= time.Second {
+			state.last_second_time = time.now()
+			state.average_duration = state.sum_duration / f64(state.frames_this_second)
+			state.sum_duration = 0
+			state.frames_this_second = 0
+		}
 		kn.add_text(text, box.lo, paint = kn.LightGray)
 		kn.add_box_lines({box.lo, box.lo + text.size}, 1, paint = kn.Red)
 		for &line in text.lines {

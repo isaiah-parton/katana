@@ -25,7 +25,7 @@ Core :: struct {
 	matrix_index:         u32,
 	default_font:         Font,
 	current_font:         Font,
-	fallback_font:        Maybe(Font),
+	fallback_font:        Font,
 	scissor_stack:        Stack(Scissor, 8),
 	scissor_stack_stack:  Stack(Stack(Scissor, 8), 8),
 	disable_scissor:      bool,
