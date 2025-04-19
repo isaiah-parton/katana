@@ -18,8 +18,8 @@ import kn "../katana"
 adapter: wgpu.Adapter
 device: wgpu.Device
 
-POEM :: `He clasps the  crag  with  crooked  hands;
-Close to the sun in lonely  lands,
+POEM :: `He clasps the crag with crooked hands;
+Close to the sun in lonely lands,
 Ring'd with the azure world, he stands.
 The wrinkled sea beneath him crawls;
 He watches from his mountain walls,

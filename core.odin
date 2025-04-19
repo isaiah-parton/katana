@@ -3,8 +3,10 @@ package katana
 import "base:runtime"
 import "core:fmt"
 import "core:time"
+import "vendor:glfw"
 import "vendor:sdl2"
 import "vendor:wgpu"
+import "vendor:wgpu/glfwglue"
 import "vendor:wgpu/sdl2glue"
 
 @(private)
@@ -13,6 +15,7 @@ core: Core
 @(private)
 Core :: struct {
 	renderer:             Renderer,
+	clear_color:          Color,
 	start_time:           time.Time,
 	frame_time:           time.Time,
 	frames_this_second:   int,
@@ -65,6 +68,10 @@ device_descriptor :: proc() -> wgpu.DeviceDescriptor {
 	}
 }
 
+set_clear_color :: proc(color: Color) {
+	core.clear_color = color
+}
+
 surface_configuration :: proc(
 	device: wgpu.Device,
 	adapter: wgpu.Adapter,
@@ -73,15 +80,18 @@ surface_configuration :: proc(
 	config: wgpu.SurfaceConfiguration,
 	ok: bool,
 ) {
+	assert(device != nil)
+	assert(adapter != nil)
+	assert(surface != nil)
 	caps, status := wgpu.SurfaceGetCapabilities(surface, adapter)
 	if status == .Error {
 		return
 	}
 	config = wgpu.SurfaceConfiguration {
-		presentMode = caps.presentModes[0] if caps.presentModeCount > 0 else {},
-		alphaMode   = caps.alphaModes[0] if caps.alphaModeCount > 0 else {},
 		device      = device,
-		format      = .BGRA8Unorm, //caps.formats[0],
+		presentMode = caps.presentModes[0] if caps.presentModeCount > 0 else .Fifo,
+		alphaMode   = caps.alphaModes[0] if caps.alphaModeCount > 0 else .Auto,
+		format      = caps.formats[0] if caps.formatCount > 0 else .BGRA8Unorm,
 		usage       = {.RenderAttachment},
 	}
 	core.renderer.surface_config = config
@@ -104,17 +114,7 @@ destroy_platform :: proc(self: ^Platform) {
 	wgpu.InstanceRelease(self.instance)
 }
 
-make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
-	platform.instance = wgpu.CreateInstance()
-	if platform.instance == nil {
-		fmt.eprintln("Failed to create instance!")
-	}
-
-	platform.surface = sdl2glue.GetSurface(platform.instance, window)
-	if platform.surface == nil {
-		fmt.eprintln("Failed to create surface!")
-	}
-
+platform_get_adapter_and_device :: proc(platform: ^Platform) {
 	on_device :: proc "c" (
 		status: wgpu.RequestDeviceStatus,
 		device: wgpu.Device,
@@ -172,9 +172,54 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 
 	wgpu.InstanceRequestAdapter(
 		platform.instance,
-		&{powerPreference = .LowPower},
-		{callback = on_adapter, userdata1 = &platform},
+		&{powerPreference = .LowPower, compatibleSurface = platform.surface},
+		{callback = on_adapter, userdata1 = platform},
 	)
+}
+
+make_platform_glfwglue :: proc(window: glfw.WindowHandle) -> (platform: Platform) {
+	platform.instance = wgpu.CreateInstance() // &{nextInChain = &wgpu.InstanceExtras{sType = .InstanceExtras, backends = {.GL}}},
+
+	if platform.instance == nil {
+		panic("Failed to create instance!")
+	}
+
+	platform.surface = glfwglue.GetSurface(platform.instance, window)
+	if platform.surface == nil {
+		panic("Failed to create surface!")
+	}
+
+	platform_get_adapter_and_device(&platform)
+
+	platform.surface_config, _ = surface_configuration(
+		platform.device,
+		platform.adapter,
+		platform.surface,
+	)
+	core.renderer.surface_config = platform.surface_config
+
+	width, height := glfw.GetWindowSize(window)
+	platform.surface_config.width = u32(width)
+	platform.surface_config.height = u32(height)
+
+	wgpu.SurfaceConfigure(platform.surface, &platform.surface_config)
+
+	return
+}
+
+make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
+	platform.instance = wgpu.CreateInstance()
+	if platform.instance == nil {
+		panic("Failed to create instance!")
+	}
+
+	platform.surface = sdl2glue.GetSurface(platform.instance, window)
+	if platform.surface == nil {
+		panic("Failed to create surface!")
+	}
+
+	platform_get_adapter_and_device(&platform)
+
 	platform.surface_config, _ = surface_configuration(
 		platform.device,
 		platform.adapter,
@@ -252,6 +297,12 @@ reset_drawing :: proc() {
 	core.opacity = 1
 
 	push_matrix()
+}
+
+set_size :: proc(width, height: i32) {
+	core.renderer.surface_config.width = u32(width)
+	core.renderer.surface_config.height = u32(height)
+	wgpu.SurfaceConfigure(core.renderer.surface, &core.renderer.surface_config)
 }
 
 new_frame :: proc() {

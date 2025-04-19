@@ -26,6 +26,7 @@ wgpu_buffer_create :: proc(
 	label: string,
 	capacity: int,
 ) -> bool {
+	reserve(&self.data, capacity)
 	self.label = label
 	self.capacity = capacity
 	self.buffer = wgpu.DeviceCreateBuffer(
@@ -283,17 +284,15 @@ present :: proc() {
 			len(core.renderer.shapes.data) - core.current_draw_call.first_shape
 	}
 
-	slice.sort_by(core.draw_calls[:], proc(i, j: Draw_Call) -> bool {
-		return i.index < j.index
-	})
-
 	encoder := wgpu.DeviceCreateCommandEncoder(renderer.device)
 	defer wgpu.CommandEncoderRelease(encoder)
 
 	surface_texture := wgpu.SurfaceGetCurrentTexture(renderer.surface)
 	switch surface_texture.status {
 	case .Error:
-	case .SuccessOptimal, .SuccessSuboptimal:
+	case .SuccessSuboptimal:
+		return
+	case .SuccessOptimal:
 	case .Timeout, .Outdated, .Lost:
 		if surface_texture.texture != nil {
 			wgpu.TextureRelease(surface_texture.texture)
@@ -303,6 +302,10 @@ present :: proc() {
 		fmt.panicf("Surface texture status: %v", surface_texture.status)
 	}
 	defer wgpu.TextureRelease(surface_texture.texture)
+
+	slice.sort_by(core.draw_calls[:], proc(i, j: Draw_Call) -> bool {
+		return i.index < j.index
+	})
 
 	surface_width := f32(wgpu.TextureGetWidth(surface_texture.texture))
 	surface_height := f32(wgpu.TextureGetHeight(surface_texture.texture))
@@ -321,8 +324,11 @@ present :: proc() {
 		uniform.gamma = 2.2
 	}
 
-	surface_view := wgpu.TextureCreateView(surface_texture.texture, nil)
+	surface_view := wgpu.TextureCreateView(surface_texture.texture)
 	defer wgpu.TextureViewRelease(surface_view)
+
+	clear_rgba := normalize_color_f64(core.clear_color)
+	clear_rgb := linalg.pow(clear_rgba.rgb, f64(uniform.gamma))
 
 	rpass := wgpu.CommandEncoderBeginRenderPass(
 		encoder,
@@ -332,7 +338,7 @@ present :: proc() {
 				view = surface_view,
 				loadOp = .Clear,
 				storeOp = .Store,
-				clearValue = {0, 0, 0, 0},
+				clearValue = {clear_rgb.r, clear_rgb.g, clear_rgb.b, clear_rgba.a},
 			},
 		},
 	)

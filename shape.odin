@@ -443,6 +443,10 @@ normalize_color :: proc(color: Color) -> [4]f32 {
 	return {f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0}
 }
 
+normalize_color_f64 :: proc(color: Color) -> [4]f64 {
+	return {f64(color.r) / 255.0, f64(color.g) / 255.0, f64(color.b) / 255.0, f64(color.a) / 255.0}
+}
+
 add_line :: proc(a, b: [2]f32, width: f32, paint: Paint_Option = nil) {
 	add_shape(
 		Shape {
