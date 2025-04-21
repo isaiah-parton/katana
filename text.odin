@@ -426,7 +426,6 @@ add_rune :: proc(
 ) -> u32 {
 	glyph, ok := get_font_glyph(font, char)
 	if !ok {
-		fmt.printfln("Unable to find font glyph '%c'", char)
 		return 0
 	}
 	return add_glyph(

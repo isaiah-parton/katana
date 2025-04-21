@@ -13,7 +13,7 @@ import "vendor:stb/image"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl2glue"
 
-import kn "../katana"
+import kn ".."
 
 adapter: wgpu.Adapter
 device: wgpu.Device

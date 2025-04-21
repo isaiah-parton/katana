@@ -470,17 +470,17 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     // Glyph
     case 9u: {
     	// Supersampling parameters
-    	let dscale = 0.354;
+    	let dscale = 0.352;
      	let uv = shape.cv0;
       let bias = shape.radius[0];
-      let duv = dscale * (dpdx(uv) + dpdy(uv));
+      let duv = dscale * (dpdxFine(uv) + dpdyFine(uv));
       let box = vec4<f32>(uv - duv, uv + duv);
       // Supersample the sdf texture
       let asum = sample_msdf(box.xy, bias) + sample_msdf(box.zw, bias) + sample_msdf(box.xw, bias) + sample_msdf(box.zy, bias);
       // Determine opacity
-      var opacity = (sample_msdf(uv, bias) + 0.5 * asum) / 3.0;
-      // Reflect opacity with distance result=
-      d = 1.0 - opacity;
+      var alpha = (sample_msdf(uv, bias) + 0.5 * asum) / 3.0;
+      // Reflect opacity with distance result
+      d = smoothstep(1.0, 0.0, alpha);
     }
     // Line segment
     case 10u: {

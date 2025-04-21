@@ -26,7 +26,6 @@ wgpu_buffer_create :: proc(
 	label: string,
 	capacity: int,
 ) -> bool {
-	reserve(&self.data, capacity)
 	self.label = label
 	self.capacity = capacity
 	self.buffer = wgpu.DeviceCreateBuffer(

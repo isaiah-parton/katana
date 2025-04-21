@@ -208,7 +208,13 @@ make_platform_glfwglue :: proc(window: glfw.WindowHandle) -> (platform: Platform
 }
 
 make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
-	platform.instance = wgpu.CreateInstance()
+	platform.instance = wgpu.CreateInstance() // &{
+	// 	nextInChain = &wgpu.InstanceExtras {
+	// 		sType = .InstanceExtras,
+	// 		backends = {.GL},
+	// 	},
+	// },
+
 	if platform.instance == nil {
 		panic("Failed to create instance!")
 	}
@@ -238,6 +244,7 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 }
 
 start_on_platform :: proc(platform: Platform) {
+	core.renderer.surface_config = platform.surface_config
 	start(platform.device, platform.surface)
 }
 
@@ -303,6 +310,13 @@ set_size :: proc(width, height: i32) {
 	core.renderer.surface_config.width = u32(width)
 	core.renderer.surface_config.height = u32(height)
 	wgpu.SurfaceConfigure(core.renderer.surface, &core.renderer.surface_config)
+}
+
+get_size :: proc() -> [2]i32 {
+	return [2]i32 {
+		i32(core.renderer.surface_config.width),
+		i32(core.renderer.surface_config.height),
+	}
 }
 
 new_frame :: proc() {
