@@ -635,4 +635,3 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
-

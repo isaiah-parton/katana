@@ -496,14 +496,14 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 	switch (shape.stroke) {
 		case 1u: {
 			let r = shape.width * 0.5;
-			d = abs(d + r - 0.5) - r + 0.25;
+			d = abs(d + r - 0.5) - r + 0.5;
 		}
 		case 2u: {
-			d = abs(d) - shape.width / 2 + 0.25;
+			d = abs(d) - shape.width / 2 + 0.5;
 		}
 		case 3u: {
 			let r = shape.width * 0.5;
-			d = abs(d - r + 0.5) - r + 0.25;
+			d = abs(d - r + 0.5) - r + 0.5;
 		}
 		case 4u: {
 			d = smoothstep(0.0, 1.0, d / shape.width);

@@ -4,12 +4,10 @@ import "base:runtime"
 import "core:fmt"
 import "core:time"
 import "vendor:glfw"
-import "vendor:sdl2"
 import "vendor:wgpu"
 import "vendor:wgpu/glfwglue"
-import "vendor:wgpu/sdl2glue"
 
-@(private)
+// @(private)
 core: Core
 
 @(private)
@@ -207,42 +205,6 @@ make_platform_glfwglue :: proc(window: glfw.WindowHandle) -> (platform: Platform
 	return
 }
 
-make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
-	platform.instance = wgpu.CreateInstance() // &{
-	// 	nextInChain = &wgpu.InstanceExtras {
-	// 		sType = .InstanceExtras,
-	// 		backends = {.GL},
-	// 	},
-	// },
-
-	if platform.instance == nil {
-		panic("Failed to create instance!")
-	}
-
-	platform.surface = sdl2glue.GetSurface(platform.instance, window)
-	if platform.surface == nil {
-		panic("Failed to create surface!")
-	}
-
-	platform_get_adapter_and_device(&platform)
-
-	platform.surface_config, _ = surface_configuration(
-		platform.device,
-		platform.adapter,
-		platform.surface,
-	)
-	core.renderer.surface_config = platform.surface_config
-
-	width, height: i32
-	sdl2.GetWindowSize(window, &width, &height)
-	platform.surface_config.width = u32(width)
-	platform.surface_config.height = u32(height)
-
-	wgpu.SurfaceConfigure(platform.surface, &platform.surface_config)
-
-	return
-}
-
 start_on_platform :: proc(platform: Platform) {
 	core.renderer.surface_config = platform.surface_config
 	start(platform.device, platform.surface)
@@ -410,4 +372,3 @@ inject_stack :: proc(stack: ^Stack($T, $N), at: int, item: T) -> bool {
 clear_stack :: proc(stack: ^Stack($T, $N)) {
 	stack.height = 0
 }
-
