@@ -379,8 +379,24 @@ parse_rgba :: proc(str: string) -> (res: Color, ok: bool) {
 	return
 }
 
-color_from_hex :: proc(hex: u32) -> Color {
-	return transmute(Color)bits.reverse_bits(hex << 8)
+rgba_from_hex :: proc(hex_str: string) -> (color: Color, ok: bool) {
+	s := hex_str
+	if strings.has_prefix(s, "#") {
+		s = s[1:]
+	}
+	color = 255
+	switch len(s) {
+	case 6:
+		for i in 0 ..< 3 {
+			byte, byte_ok := strconv.parse_u64_of_base(s[i * 2:i * 2 + 2], 16)
+			if !byte_ok {
+				return
+			}
+			color[i] = u8(byte)
+		}
+		ok = true
+	}
+	return
 }
 
 hex_from_color :: proc(color: Color) -> u32 {
@@ -457,7 +473,6 @@ hsl_from_norm_rgb :: proc(rgb: [3]f32) -> [3]f32 {
 }
 
 color_from :: proc {
-	color_from_hex,
 	color_from_hsl,
 	color_from_hsva,
 }
@@ -568,3 +583,4 @@ blend :: proc {
 	blend_colors_time,
 	blend_colors_tint,
 }
+

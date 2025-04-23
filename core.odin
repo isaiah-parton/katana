@@ -269,6 +269,10 @@ reset_drawing :: proc() {
 }
 
 set_size :: proc(width, height: i32) {
+	if core.renderer.surface_config.width == u32(width) &&
+	   core.renderer.surface_config.height == u32(height) {
+		return
+	}
 	core.renderer.surface_config.width = u32(width)
 	core.renderer.surface_config.height = u32(height)
 	wgpu.SurfaceConfigure(core.renderer.surface, &core.renderer.surface_config)
@@ -372,3 +376,4 @@ inject_stack :: proc(stack: ^Stack($T, $N), at: int, item: T) -> bool {
 clear_stack :: proc(stack: ^Stack($T, $N)) {
 	stack.height = 0
 }
+
