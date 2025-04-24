@@ -2,6 +2,7 @@ package katana
 
 import "base:runtime"
 import "core:fmt"
+import "core:slice"
 import "core:time"
 import "vendor:glfw"
 import "vendor:wgpu"
@@ -85,10 +86,17 @@ surface_configuration :: proc(
 	if status == .Error {
 		return
 	}
+	// Prefer non-SRGB formats 🤭
+	slice.sort_by(caps.formats[:caps.formatCount], proc(i, j: wgpu.TextureFormat) -> bool {
+		if i == j {
+			return false
+		}
+		return j == .BGRA8UnormSrgb || j == .RGBA8UnormSrgb
+	})
 	config = wgpu.SurfaceConfiguration {
 		device      = device,
-		presentMode = caps.presentModes[0] if caps.presentModeCount > 0 else .Fifo,
-		alphaMode   = caps.alphaModes[0] if caps.alphaModeCount > 0 else .Auto,
+		presentMode = .Fifo,
+		alphaMode   = .Opaque,
 		format      = caps.formats[0] if caps.formatCount > 0 else .BGRA8Unorm,
 		usage       = {.RenderAttachment},
 	}

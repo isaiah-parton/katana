@@ -396,7 +396,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
           value += rounded_box_shadow_x(point.x, point.y - y, blur_radius, shape.radius[0], half_size) * gaussian(y, blur_radius) * step;
           y += step;
       }
-      d = (1.0 - value * 4.0);
+      d = 1.0 - value;
 		}
 		// Arc
 		case 4u: {

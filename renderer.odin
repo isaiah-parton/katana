@@ -287,6 +287,8 @@ present :: proc() {
 	defer wgpu.CommandEncoderRelease(encoder)
 
 	surface_texture := wgpu.SurfaceGetCurrentTexture(renderer.surface)
+	defer wgpu.TextureRelease(surface_texture.texture)
+
 	switch surface_texture.status {
 	case .Error:
 	case .SuccessSuboptimal:
@@ -300,7 +302,6 @@ present :: proc() {
 	case .OutOfMemory, .DeviceLost:
 		fmt.panicf("Surface texture status: %v", surface_texture.status)
 	}
-	defer wgpu.TextureRelease(surface_texture.texture)
 
 	slice.sort_by(core.draw_calls[:], proc(i, j: Draw_Call) -> bool {
 		return i.index < j.index

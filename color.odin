@@ -379,12 +379,12 @@ parse_rgba :: proc(str: string) -> (res: Color, ok: bool) {
 	return
 }
 
-rgba_from_hex :: proc(hex_str: string) -> (color: Color, ok: bool) {
+parse_hex :: proc(hex_str: string) -> (out: Color) {
 	s := hex_str
 	if strings.has_prefix(s, "#") {
 		s = s[1:]
 	}
-	color = 255
+	out = 255
 	switch len(s) {
 	case 6:
 		for i in 0 ..< 3 {
@@ -392,9 +392,8 @@ rgba_from_hex :: proc(hex_str: string) -> (color: Color, ok: bool) {
 			if !byte_ok {
 				return
 			}
-			color[i] = u8(byte)
+			out[i] = u8(byte)
 		}
-		ok = true
 	}
 	return
 }
@@ -403,9 +402,7 @@ hex_from_color :: proc(color: Color) -> u32 {
 	return bits.reverse_bits(transmute(u32)color) >> 8
 }
 
-hsva_from_color :: proc(color: Color) -> (hsva: [4]f32) {
-	rgba: [4]f32 = {f32(color.r), f32(color.g), f32(color.b), f32(color.a)} / 255
-
+hsva_from_rgba :: proc(rgba: [4]f32) -> (hsva: [4]f32) {
 	low := min(rgba.r, rgba.g, rgba.b)
 	high := max(rgba.r, rgba.g, rgba.b)
 	hsva.w = rgba.a
@@ -442,7 +439,7 @@ hsva_from_color :: proc(color: Color) -> (hsva: [4]f32) {
 	return
 }
 
-color_from_hsva :: proc(hsva: [4]f32) -> Color {
+rgba_from_hsva :: proc(hsva: [4]f32) -> [4]f32 {
 	r, g, b, k, t: f32
 
 	k = math.mod(5.0 + hsva.x / 60.0, 6)
@@ -460,27 +457,17 @@ color_from_hsva :: proc(hsva: [4]f32) -> Color {
 	k = clamp(min(t, k), 0, 1)
 	b = hsva.z - hsva.z * hsva.y * k
 
-	return {u8(r * 255.0), u8(g * 255.0), u8(b * 255.0), u8(hsva.w * 255.0)}
+	return {r, g, b, hsva.w}
 }
 
-hsl_from_norm_rgb :: proc(rgb: [3]f32) -> [3]f32 {
-	v := max(rgb.r, rgb.g, rgb.b)
-	c := v - min(rgb.r, rgb.g, rgb.b)
-	f := 1 - abs(v + v - c - 1)
-	h :=
-		((rgb.g - rgb.b) / c) if (c > 0 && v == rgb.r) else ((2 + (rgb.b - rgb.r) / c) if v == rgb.g else (4 + (rgb.r - rgb.g) / c))
-	return {60 * ((h + 6) if h < 0 else h), (c / f) if f > 0 else 0, (v + v - c) / 2}
-}
-
-color_from :: proc {
-	color_from_hsl,
-	color_from_hsva,
-}
-
-hsl_from :: proc {
-	hsl_from_norm_rgb,
-	hsl_from_color,
-}
+// hsva_from_rgba :: proc(rgba: [4]f32) -> [4]f32 {
+// 	v := max(rgba.r, rgba.g, rgba.b)
+// 	c := v - min(rgba.r, rgba.g, rgba.b)
+// 	f := 1 - abs(v + v - c - 1)
+// 	h :=
+// 		((rgba.g - rgba.b) / c) if (c > 0 && v == rgba.r) else ((2 + (rgba.b - rgba.r) / c) if v == rgba.g else (4 + (rgba.r - rgba.g) / c))
+// 	return {60 * ((h + 6) if h < 0 else h), (c / f) if f > 0 else 0, (v + v - c) / 2, rgba.a}
+// }
 
 mix :: proc(time: f32, colors: ..Color) -> Color {
 	if len(colors) > 0 {
@@ -516,21 +503,20 @@ luminance_of :: proc(color: Color) -> f32 {
 	)
 }
 
-hsl_from_color :: proc(color: Color) -> [4]f32 {
-	hsva := linalg.vector4_rgb_to_hsl(
-		linalg.Vector4f32 {
-			f32(color.r) / 255.0,
-			f32(color.g) / 255.0,
-			f32(color.b) / 255.0,
-			f32(color.a) / 255.0,
-		},
-	)
-	return hsva.xyzw
+color_from_hsla :: proc(h: f32, s: f32, l: f32, a: f32 = 1.0) -> [4]f32 {
+	return color_from_hsla_array({h, s, l, a})
 }
 
-color_from_hsl :: proc(hue, saturation, value: f32) -> Color {
-	rgba := linalg.vector4_hsl_to_rgb(hue, saturation, value, 1.0)
-	return {u8(rgba.r * 255.0), u8(rgba.g * 255.0), u8(rgba.b * 255.0), u8(rgba.a * 255.0)}
+color_from_hsla_array :: proc(hsla: [4]f32) -> [4]f32 {
+	return linalg.vector4_hsl_to_rgb(hsla.x, hsla.y, hsla.z, hsla.w)
+}
+
+rgba_from_color :: proc(color: Color) -> [4]f32 {
+	return {f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0}
+}
+
+hsla_from_rgba :: proc(rgba: [4]f32) -> [4]f32 {
+	return linalg.vector4_rgb_to_hsl(rgba)
 }
 
 fade :: proc(color: Color, alpha: f32) -> Color {
