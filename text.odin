@@ -6,6 +6,7 @@ import "core:io"
 import "core:math"
 import "core:math/linalg"
 import "core:mem"
+import "core:slice"
 import "core:strings"
 import "core:unicode"
 import "core:unicode/utf8"
@@ -143,14 +144,14 @@ make_text_with_reader :: proc(
 
 	text.font_scale = size
 
-	wrap_to_last_word :: proc(b: ^Text_Builder) {
+	wrap_last_word :: proc(b: ^Text_Builder) {
 		move_left := b.glyphs[b.wrap_to_glyph].offset.x
 		if move_left == 0 {
 			return
 		}
 		descent := b.font.line_height * b.font_size
 		word_width: f32
-		for &glyph in b.glyphs[b.wrap_to_glyph:] {
+		for &glyph in b.glyphs[b.wrap_to_glyph:len(b.glyphs) - 1] {
 			glyph.offset.x -= move_left
 			glyph.offset.y += descent
 			glyph.line += 1
@@ -168,7 +169,7 @@ make_text_with_reader :: proc(
 		}
 	}
 
-	end_line_on_glyph :: proc(b: ^Text_Builder, index: int) {
+	end_line_on_glyph :: proc(b: ^Text_Builder, index: int, loc := #caller_location) {
 		if index < 0 {
 			return
 		}
@@ -178,7 +179,7 @@ make_text_with_reader :: proc(
 			glyph.offset.x + glyph.advance * b.font_size,
 			b.font.line_height * b.font_size,
 		}
-		line_offset := b.line.size.x * b.justify
+		line_offset := b.line.size.x * -b.justify
 
 		for &glyph in b.glyphs[b.line.first_glyph:index] {
 			glyph.offset.x += line_offset
@@ -191,6 +192,8 @@ make_text_with_reader :: proc(
 		b.size.y += b.font.line_height * b.font_size
 		append(&b.lines, b.line)
 	}
+
+	next_glyph_index: int = -1
 
 	for !b.at_end {
 		if b.offset.y >= b.max_height {
@@ -209,18 +212,19 @@ make_text_with_reader :: proc(
 		b.last_char = b.char
 		b.char, _, err = io.read_rune(b.reader, &b.next_index)
 
+		glyph_found: bool
+		b.was_white_space = b.is_white_space
 		if err == .EOF {
 			b.at_end = true
 			b.glyph = {}
 			b.char = 0
+			b.is_white_space = true
 		} else {
-			b.glyph, _ = find_font_glyph(b.font, b.char)
-			b.was_white_space = b.is_white_space
+			b.glyph, glyph_found = find_font_glyph(b.font, b.char)
 			b.is_white_space = unicode.is_white_space(b.char)
 		}
 
-		next_glyph_index := len(b.glyphs)
-		append(
+		next_glyph_index += append(
 			&b.glyphs,
 			Text_Glyph {
 				line = len(b.lines),
@@ -234,11 +238,11 @@ make_text_with_reader :: proc(
 		b.line.size.x += b.glyph.advance * b.font_size + b.spacing * f32(i32(!b.at_end))
 
 		if b.wrap == .Words {
-			if b.is_white_space || b.at_end {
+			if b.is_white_space {
 				if !b.was_white_space && b.line.size.x > b.max_width && b.wrap_to_glyph > 0 {
 					end_line_on_glyph(&b, b.wrap_to_glyph - 1)
 					start_line_on_glyph(&b, b.wrap_to_glyph)
-					wrap_to_last_word(&b)
+					wrap_last_word(&b)
 					if b.offset.y >= b.max_height {
 						end_line_on_glyph(&b, next_glyph_index)
 						break
@@ -450,7 +454,7 @@ add_glyph :: proc(
 
 add_text_scaffold :: proc(text: Text, origin: [2]f32) {
 	for &line in text.lines {
-		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = Red)
+		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = RED)
 	}
 }
 

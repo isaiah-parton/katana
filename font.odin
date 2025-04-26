@@ -103,9 +103,6 @@ load_font_from_slices :: proc(
 		glyph := Font_Glyph {
 			advance = f32(glyph_obj["advance"].(json.Float) or_return),
 		}
-		if code == ' ' {
-			font.space_advance = glyph.advance
-		}
 		// left, bottom, right, top
 		if plane_bounds_obj, ok := glyph_obj["planeBounds"].(json.Object); ok {
 			glyph.bounds = Box {
@@ -146,6 +143,10 @@ load_font_from_slices :: proc(
 	font.glyphs = glyphs[:]
 	ok = true
 
+	if glyph, ok := get_font_glyph(font, ' '); ok {
+		font.space_advance = glyph.advance
+	}
+
 	// font.placeholder_glyph = get_font_glyph(font, '?') or_else Font_Glyph{}
 
 	return
@@ -157,6 +158,10 @@ get_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) 
 	if !ok do return
 	#no_bounds_check glyph = font.glyphs[index]
 	return
+}
+
+font_glyph_size :: proc(glyph: Font_Glyph, scale: f32) -> [2]f32 {
+	return (glyph.bounds.hi - glyph.bounds.lo) * scale
 }
 
 DEFAULT_FONT: Font

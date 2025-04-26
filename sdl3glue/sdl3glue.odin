@@ -29,14 +29,16 @@ make_platform_sdl3glue :: proc(window: ^sdl3.Window) -> (platform: kn.Platform) 
 		platform.adapter,
 		platform.surface,
 	)
-	kn.core.renderer.surface_config = platform.surface_config
 
 	width, height: i32
 	sdl3.GetWindowSize(window, &width, &height)
 	platform.surface_config.width = u32(width)
 	platform.surface_config.height = u32(height)
 
+	kn.core.renderer.surface_config = platform.surface_config
+
 	wgpu.SurfaceConfigure(platform.surface, &platform.surface_config)
 
 	return
 }
+

@@ -287,10 +287,11 @@ present :: proc() {
 	defer wgpu.CommandEncoderRelease(encoder)
 
 	surface_texture := wgpu.SurfaceGetCurrentTexture(renderer.surface)
-	defer wgpu.TextureRelease(surface_texture.texture)
+	defer if surface_texture.texture != nil do wgpu.TextureRelease(surface_texture.texture)
 
 	switch surface_texture.status {
 	case .Error:
+		fmt.eprintln("Unknown error acquiring surface texture")
 	case .SuccessSuboptimal:
 		return
 	case .SuccessOptimal:

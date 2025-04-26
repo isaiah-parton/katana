@@ -470,7 +470,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
     // Glyph
     case 9u: {
     	// Supersampling parameters
-    	let dscale = 0.352;
+    	let dscale = 0.354;
      	let uv = shape.cv0;
       let bias = shape.radius[0];
       let duv = dscale * (dpdxFine(uv) + dpdyFine(uv));
