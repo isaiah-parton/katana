@@ -139,11 +139,12 @@ make_text_with_reader :: proc(
 		max_height = max_size.y,
 		wrap       = wrap,
 		glyphs     = make([dynamic]Text_Glyph, len = 0, cap = 64, allocator = allocator),
-		lines      = make([dynamic]Text_Line, len = 0, cap = 8, allocator = allocator),
+		lines      = make([dynamic]Text_Line, len = 0, cap = 16, allocator = allocator),
 	}
 
 	text.font_scale = size
 
+	// Move the last word down one line
 	wrap_last_word :: proc(b: ^Text_Builder) {
 		move_left := b.glyphs[b.wrap_to_glyph].offset.x
 		if move_left == 0 {
@@ -151,16 +152,19 @@ make_text_with_reader :: proc(
 		}
 		descent := b.font.line_height * b.font_size
 		word_width: f32
-		for &glyph in b.glyphs[b.wrap_to_glyph:len(b.glyphs) - 1] {
+		for &glyph in b.glyphs[b.wrap_to_glyph:] {
 			glyph.offset.x -= move_left
 			glyph.offset.y += descent
 			glyph.line += 1
-			word_width += glyph.advance * b.font_size
+		}
+		for &glyph in b.glyphs[b.wrap_to_glyph:len(b.glyphs) - 1] {
+			word_width += glyph.advance * b.font_size + b.spacing
 		}
 		b.offset.x += word_width
 		b.line.size.x += word_width
 	}
 
+	// Start a new line, but don't add it
 	start_line_on_glyph :: proc(b: ^Text_Builder, index: int) {
 		b.offset.y += b.font.line_height * b.font_size
 		b.line = Text_Line {
@@ -169,6 +173,7 @@ make_text_with_reader :: proc(
 		}
 	}
 
+	// End the current line, adding it to the array
 	end_line_on_glyph :: proc(b: ^Text_Builder, index: int, loc := #caller_location) {
 		if index < 0 {
 			return
@@ -263,10 +268,8 @@ make_text_with_reader :: proc(
 				end_line_on_glyph(&b, next_glyph_index - 1)
 				start_line_on_glyph(&b, next_glyph_index)
 			}
-		} else {
-			if b.at_end {
-				end_line_on_glyph(&b, next_glyph_index)
-			}
+		} else if b.at_end {
+			end_line_on_glyph(&b, next_glyph_index)
 		}
 	}
 
