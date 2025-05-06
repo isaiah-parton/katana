@@ -286,10 +286,10 @@ set_size :: proc(width, height: i32) {
 	wgpu.SurfaceConfigure(core.renderer.surface, &core.renderer.surface_config)
 }
 
-get_size :: proc() -> [2]i32 {
-	return [2]i32 {
-		i32(core.renderer.surface_config.width),
-		i32(core.renderer.surface_config.height),
+get_size :: proc() -> [2]f32 {
+	return [2]f32 {
+		f32(core.renderer.surface_config.width),
+		f32(core.renderer.surface_config.height),
 	}
 }
 

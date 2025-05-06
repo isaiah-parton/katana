@@ -271,7 +271,7 @@ destroy_renderer :: proc(renderer: ^Renderer) {
 	wgpu.RenderPipelineRelease(renderer.pipeline)
 }
 
-present :: proc() {
+present :: proc(skip: bool = false) {
 	renderer := &core.renderer
 
 	when ODIN_DEBUG {
@@ -450,7 +450,10 @@ present :: proc() {
 	command_buffer := wgpu.CommandEncoderFinish(encoder)
 	defer wgpu.CommandBufferRelease(command_buffer)
 
-	wgpu.QueueSubmit(renderer.queue, {command_buffer})
+	if !skip {
+		wgpu.QueueSubmit(renderer.queue, {command_buffer})
+	}
+
 	wgpu.SurfacePresent(renderer.surface)
 
 	when ODIN_DEBUG {

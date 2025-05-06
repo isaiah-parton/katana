@@ -219,6 +219,11 @@ make_text_with_reader :: proc(
 			b.glyph = {}
 			b.char = 0
 			b.is_white_space = true
+		} else if b.char == '\t' {
+			b.glyph = {
+				advance = b.font.space_advance * 2,
+			}
+			b.is_white_space = true
 		} else {
 			b.glyph, glyph_found = find_font_glyph(b.font, b.char)
 			b.is_white_space = unicode.is_white_space(b.char)
@@ -343,6 +348,9 @@ closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int
 
 add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
 	for &glyph in text.glyphs {
+		if glyph.source.lo == glyph.source.hi {
+			continue
+		}
 		add_glyph(
 			glyph,
 			text.font_scale,
