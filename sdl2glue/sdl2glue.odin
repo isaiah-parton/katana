@@ -5,7 +5,7 @@ import "vendor:sdl2"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl2glue"
 
-make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
+make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: kn.Platform) {
 	platform.instance = wgpu.CreateInstance() // &{
 	// 	nextInChain = &wgpu.InstanceExtras {
 	// 		sType = .InstanceExtras,
@@ -22,14 +22,14 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 		panic("Failed to create surface!")
 	}
 
-	platform_get_adapter_and_device(&platform)
+	kn.platform_get_adapter_and_device(&platform)
 
-	platform.surface_config, _ = surface_configuration(
+	platform.surface_config, _ = kn.surface_configuration(
 		platform.device,
 		platform.adapter,
 		platform.surface,
 	)
-	core.renderer.surface_config = platform.surface_config
+	kn.core.renderer.surface_config = platform.surface_config
 
 	width, height: i32
 	sdl2.GetWindowSize(window, &width, &height)
@@ -40,3 +40,4 @@ make_platform_sdl2glue :: proc(window: ^sdl2.Window) -> (platform: Platform) {
 
 	return
 }
+

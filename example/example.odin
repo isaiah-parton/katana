@@ -11,9 +11,9 @@ import "core:time"
 import "vendor:sdl2"
 import "vendor:stb/image"
 import "vendor:wgpu"
-import "vendor:wgpu/sdl2glue"
 
 import kn ".."
+import "../sdl2glue"
 
 adapter: wgpu.Adapter
 device: wgpu.Device
@@ -50,7 +50,7 @@ State :: struct {
 }
 
 example_gallery :: proc(state: ^State) {
-	GRADIENT_COLORS :: [2]kn.Color{kn.Blue, kn.DeepBlue}
+	GRADIENT_COLORS :: [2]kn.Color{kn.BLUE, kn.DEEP_BLUE}
 
 	Layout :: struct {
 		bounds, box: kn.Box,
@@ -173,7 +173,7 @@ example_gallery :: proc(state: ^State) {
 			kn.make_atlas_sample(
 				state.image_source,
 				{container_center - radius, container_center + radius},
-				kn.White,
+				kn.WHITE,
 			),
 			// kn.make_linear_gradient(
 			// 	center - radius,
@@ -277,11 +277,11 @@ example_gallery :: proc(state: ^State) {
 		center := (container.lo + container.hi) / 2
 		size := [2]f32{clamp(1.5 + math.sin(state.animation_time * 2) * 2, 1, 2), 1} * 90
 		box := kn.Box{center - size * 0.5, center + size * 0.5}
-		kn.set_paint(kn.DeepBlue)
+		kn.set_paint(kn.DEEP_BLUE)
 		kn.add_box_lines(box, 3, 5)
 		box.lo += 4
 		box.hi -= 4
-		kn.set_paint(kn.Blue)
+		kn.set_paint(kn.BLUE)
 		kn.set_font(state.font)
 		kn.add_string_wrapped(SAMPLE_TEXT, 20, box)
 	}
@@ -291,11 +291,11 @@ example_gallery :: proc(state: ^State) {
 		center := (container.lo + container.hi) / 2
 		size := [2]f32{2, 1} * 90
 		box := kn.Box{center - size * 0.5, center + size * 0.5}
-		kn.set_paint(kn.DeepBlue)
+		kn.set_paint(kn.DEEP_BLUE)
 		kn.add_box_lines(box, 3, 5)
 		box.lo += 4
 		box.hi -= 4
-		kn.set_paint(kn.Blue)
+		kn.set_paint(kn.BLUE)
 		kn.set_font(state.font)
 		kn.add_string_wrapped(
 			SAMPLE_TEXT,
@@ -307,7 +307,7 @@ example_gallery :: proc(state: ^State) {
 	{
 		container := get_box(&layout)
 		center := (container.lo + container.hi) / 2
-		kn.set_paint(kn.Blue)
+		kn.set_paint(kn.BLUE)
 		kn.set_font(state.font)
 		size := kn.add_string(POEM, 12, center, align = {0, 0.5}, justify = 0.5)
 	}
@@ -315,7 +315,7 @@ example_gallery :: proc(state: ^State) {
 	{
 		container := get_box(&layout)
 		center := (container.lo + container.hi) / 2
-		kn.set_paint(kn.Blue)
+		kn.set_paint(kn.BLUE)
 		kn.set_font(state.font)
 		kn.push_matrix()
 		kn.translate(center)
@@ -341,7 +341,7 @@ main :: proc() {
 	window_width, window_height: i32
 	sdl2.GetWindowSize(window, &window_width, &window_height)
 
-	platform := kn.make_platform_sdl2glue(window)
+	platform := sdl2glue.make_platform_sdl2glue(window)
 	defer kn.destroy_platform(&platform)
 
 	kn.start_on_platform(platform)
@@ -412,42 +412,49 @@ main :: proc() {
 		kn.new_frame()
 
 		// example_gallery(&state)
+		//
 
 		center := state.canvas_size / 2
-		size := linalg.abs(state.cursor_position - center)
-		box := kn.Box{center - size, center + size}
+		box := kn.Box{100, 200}
+		// kn.add_box(box, 10, kn.DEEP_BLUE)
+		kn.add_box_lines(box, 1, 10, kn.RED, .Stroke)
+		kn.add_box({0, 5}, paint = kn.BLUE)
+		kn.add_circle({3, 10}, 3, paint = kn.ORANGE)
 
-		kn.add_box(box, paint = kn.Color{50, 50, 50, 255})
-		t := time.now()
-		text := kn.make_text(POEM, 20, wrap = .Words, max_size = box.hi - box.lo)
-		kn.add_string(fmt.tprintf("%.2f", state.average_duration), 16, {0, 20}, paint = kn.White)
-		state.sum_duration += time.duration_microseconds(time.since(t))
-		state.frames_this_second += 1
-		if time.since(state.last_second_time) >= time.Second {
-			state.last_second_time = time.now()
-			state.average_duration = state.sum_duration / f64(state.frames_this_second)
-			state.sum_duration = 0
-			state.frames_this_second = 0
-		}
-		kn.add_text(text, box.lo, paint = kn.LightGray)
-		kn.add_box_lines({box.lo, box.lo + text.size}, 1, paint = kn.Red)
-		for &line in text.lines {
-			offset := box.lo + line.offset
-			kn.add_box_lines({offset, offset + line.size}, 1, paint = kn.Purple)
-		}
+		// size := linalg.abs(state.cursor_position - center)
+		// box := kn.Box{center - size, center + size}
 
-		kn.set_font(state.font)
-		kn.add_string(
-			fmt.tprintf("FPS: %.0f", kn.get_fps()),
-			origin = {},
-			size = 16,
-			paint = kn.LimeGreen,
-		)
+		// kn.add_box(box, paint = kn.Color{50, 50, 50, 255})
+		// t := time.now()
+		// text := kn.make_text(POEM, 20, wrap = .Words, max_size = box.hi - box.lo)
+		// kn.add_string(fmt.tprintf("%.2f", state.average_duration), 16, {0, 20}, paint = kn.WHITE)
+		// state.sum_duration += time.duration_microseconds(time.since(t))
+		// state.frames_this_second += 1
+		// if time.since(state.last_second_time) >= time.Second {
+		// 	state.last_second_time = time.now()
+		// 	state.average_duration = state.sum_duration / f64(state.frames_this_second)
+		// 	state.sum_duration = 0
+		// 	state.frames_this_second = 0
+		// }
+		// kn.add_text(text, box.lo, paint = kn.LIGHT_GRAY)
+		// kn.add_box_lines({box.lo, box.lo + text.size}, 1, paint = kn.RED)
+		// for &line in text.lines {
+		// 	offset := box.lo + line.offset
+		// 	kn.add_box_lines({offset, offset + line.size}, 1, paint = kn.PURPLE)
+		// }
+
+		// kn.set_font(state.font)
+		// kn.add_string(
+		// 	fmt.tprintf("FPS: %.0f", kn.get_fps()),
+		// 	origin = {},
+		// 	size = 16,
+		// 	paint = kn.LIME_GREEN,
+		// )
 
 		{
 			text := "[A] toggle animation\n[Z] toggle fps limit"
 			kn.set_font(state.font)
-			kn.add_string(text, 16, {0, state.canvas_size.y}, align = {0, 1}, paint = kn.White)
+			kn.add_string(text, 16, {0, state.canvas_size.y}, align = {0, 1}, paint = kn.WHITE)
 		}
 
 		kn.present()

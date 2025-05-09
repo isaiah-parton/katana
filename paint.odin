@@ -193,7 +193,7 @@ make_radial_gradient :: proc(center: [2]f32, radius: f32, inner, outer: Color) -
 	diff := linalg.abs(normalize_color(outer) - normalize_color(inner))
 	return Paint {
 		kind = .Radial_Gradient,
-		noise = max(0.0, (1.0 - (diff.r + diff.g + diff.b + diff.a) * 0.25) * 0.001),
+		noise = max(0.0, (1.0 - (diff.r + diff.g + diff.b + diff.a) * 0.25) * 0.05),
 		cv0 = center,
 		cv1 = {radius, 0},
 		col0 = normalize_color(inner),

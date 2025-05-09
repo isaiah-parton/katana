@@ -95,7 +95,7 @@ surface_configuration :: proc(
 	})
 	config = wgpu.SurfaceConfiguration {
 		device      = device,
-		presentMode = .Fifo,
+		presentMode = .Immediate,
 		alphaMode   = .Opaque,
 		format      = caps.formats[0] if caps.formatCount > 0 else .BGRA8Unorm,
 		usage       = {.RenderAttachment},

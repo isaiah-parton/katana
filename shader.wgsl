@@ -102,23 +102,33 @@ var user_tex: texture_2d<f32>;
 fn sd_subtract(d1: f32, d2: f32) -> f32 {
 	return max(-d1, d2);
 }
+
+// A filled circle
 fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
-	return length(p) - r + 0.5;
+	return length(p) - r;
 }
+
+// A filled pie
 fn sd_pie(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, r: f32) -> f32 {
 	var pp = p * mat2x2<f32>(sca,vec2<f32>(-sca.y,sca.x));
 	pp.x = abs(pp.x);
 	let l = length(pp) - r;
 	let m = length(pp - scb * clamp(dot(pp, scb), 0.0, r));
-	return max(l, m * sign(scb.y * pp.x - scb.x * pp.y)) + 0.5;
+	return max(l, m * sign(scb.y * pp.x - scb.x * pp.y));
 }
+
+// A generic pie function
 fn sd_pie2(p: vec2<f32>, n: vec2<f32>) -> f32 {
 	return abs(p).x * n.y + p.y * n.x;
 }
+
+// An arc with square ends
 fn sd_arc_square(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, radius: f32, width: f32) -> f32 {
   let pp = p * mat2x2<f32>(sca,vec2<f32>(-sca.y,sca.x));
   return sd_subtract(sd_pie2(pp, vec2<f32>(scb.x, -scb.y)), abs(sd_circle(pp, radius)) - width) + 1;
 }
+
+// An arc with rounded ends
 fn sd_arc(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, ra: f32, rb: f32) -> f32 {
 	var pp = p * mat2x2<f32>(vec2<f32>(sca.x, sca.y), vec2<f32>(-sca.y, sca.x));
   pp.x = abs(pp.x);
@@ -128,8 +138,10 @@ fn sd_arc(p: vec2<f32>, sca: vec2<f32>, scb: vec2<f32>, ra: f32, rb: f32) -> f32
   } else {
     k = length(pp);
   }
-  return sqrt(dot(pp, pp) + ra * ra - 2.0 * ra * k) - rb + 1;
+  return sqrt(dot(pp, pp) + ra * ra - 2.0 * ra * k) - rb;
 }
+
+// A box with rounded corners
 fn sd_box(p: vec2<f32>, b: vec2<f32>, rr: vec4<f32>) -> f32 {
 	var r: vec2<f32>;
 	if (p.x > 0.0) {
@@ -141,8 +153,10 @@ fn sd_box(p: vec2<f32>, b: vec2<f32>, rr: vec4<f32>) -> f32 {
 		r.x = r.y;
 	}
   let q = abs(p) - b + r.x;
-  return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x + 0.5;
+  return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x;
 }
+
+// A faster approximation of a cubic bezier
 fn sd_bezier_approx(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let v0 = normalize(B - A); let v1 = normalize(C - A);
   let det = v0.x * v1.y - v1.x * v0.y;
@@ -151,15 +165,20 @@ fn sd_bezier_approx(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f
   }
   return length(get_distance_vector(A-p, B-p, C-p));
 }
+
+// Line segment
 fn sd_line(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 	let pa = p - a;
 	let ba = b - a;
 	let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-	return length(pa - ba * h) + 0.5;
+	return length(pa - ba * h);
 }
+
 fn cro(a: vec2<f32>, b: vec2<f32>) -> f32 {
 	return a.x * b.y - a.y * b.x;
 }
+
+// Simple cubic bezier
 fn sd_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
   let a = B - A;
   let b = A - 2.0 * B + C;
@@ -196,6 +215,8 @@ fn cos_acos_3(X: f32) -> f32 {
 	var x = sqrt(0.5 + 0.5 * X);
 	return x * (x * (x * ((x * -0.008972) + 0.039071) - 0.107074) + 0.576975) + 0.5;
 }
+
+// A signed bezier for paths
 fn sd_signed_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) -> f32 {
 	let a = B - A;
 	let b = A - 2.0 * B + C;
@@ -245,6 +266,8 @@ fn sd_signed_bezier(pos: vec2<f32>, A: vec2<f32>, B: vec2<f32>, C: vec2<f32>) ->
 	}
 	return sqrt(res) * sign(sgn);
 }
+
+//
 fn sd_line_test(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> f32 {
 	let dir = normalize(B - A);
 	var det = 1.0 / ((dir.x * dir.x) - (-dir.y * dir.y));
@@ -254,6 +277,8 @@ fn sd_line_test(p: vec2<f32>, A: vec2<f32>, B: vec2<f32>) -> f32 {
 	);
 	return (xform * (p - A)).y / 4.0;
 }
+
+// A simple triangle sdf
 fn sd_triangle(p: vec2<f32>, p0: vec2<f32>, p1: vec2<f32>, p2: vec2<f32>) -> f32 {
 	let e0 = p1 - p0;
 	let e1 = p2 - p1;
@@ -465,7 +490,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
         	 s *= -1.0;
         }
       }
-      return s * sqrt(d) + 0.5;
+      return s * sqrt(d);
     }
     // Glyph
     case 9u: {
@@ -480,7 +505,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
       // Determine opacity
       var alpha = (sample_msdf(uv, bias) + 0.5 * asum) / 3.0;
       // Reflect opacity with distance result
-      d = smoothstep(1.0, 0.0, alpha);
+      d = 0.5 - alpha;
     }
     // Line segment
     case 10u: {
@@ -496,20 +521,27 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 	switch (shape.stroke) {
 		case 1u: {
 			let r = shape.width * 0.5;
-			d = abs(d + r - 0.5) - r + 0.5;
+			d = abs(d + r) - r;
 		}
 		case 2u: {
-			d = abs(d) - shape.width / 2 + 0.5;
+			d = abs(d) - shape.width / 2;
 		}
 		case 3u: {
 			let r = shape.width * 0.5;
-			d = abs(d - r + 0.5) - r + 0.5;
+			d = abs(d - r) - r;
 		}
 		case 4u: {
-			d = smoothstep(0.0, 1.0, d / shape.width);
+			if (d > 0) {
+				d = smoothstep(0.0, 1.0, d / shape.width);
+			}
 		}
 		default: {}
 	}
+
+	if (shape.stroke > 0u && shape.width < 0.5) {
+		d = 0.5;
+	}
+
 	return d;
 }
 
@@ -661,7 +693,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 		}
 	}
 
-	let opacity = clamp(1.0 - d, 0.0, 1.0);
+	let antialias_threshold = 0.5;
+
+	let opacity = clamp(antialias_threshold - d, 0.0, 1.0);
 
 	// Get pixel color
 	if (opacity > 0.0) {

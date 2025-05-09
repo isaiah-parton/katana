@@ -54,10 +54,8 @@ Text_Point_Contact :: struct {
 }
 
 Text_Selection :: struct {
-	first_glyph: int,
-	last_glyph:  int,
-	first_line:  int,
-	last_line:   int,
+	glyphs: [2]int,
+	lines:  [2]int,
 }
 
 Selectable_Text :: struct {
@@ -282,21 +280,20 @@ make_text_with_reader :: proc(
 	return
 }
 
-make_selectable :: proc(
-	text: Text,
-	point: [2]f32,
-	selection_min, selection_max: int,
-) -> Selectable_Text {
+make_selectable :: proc(text: Text, point: [2]f32, selection: [2]int) -> Selectable_Text {
 	text := Selectable_Text {
 		text = text,
 	}
 
+	if len(text.glyphs) == 0 {
+		return text
+	}
+
 	closest: f32 = math.F32_MAX
 
-	text.contact.line = clamp(
-		int(point.y / f32(text.font.line_height * text.font_scale)),
+	text.contact.line = max(
+		min(int(point.y / f32(text.font.line_height * text.font_scale)), len(text.lines) - 1),
 		0,
-		len(text.lines) - 1,
 	)
 
 	for &line, line_index in text.lines {
@@ -311,13 +308,13 @@ make_selectable :: proc(
 	}
 
 	for &glyph, glyph_index in text.glyphs {
-		if glyph.index == selection_min {
-			text.selection.first_glyph = glyph_index
-			text.selection.first_line = glyph.line
+		if glyph.index == selection[0] {
+			text.selection.glyphs[0] = glyph_index
+			text.selection.lines[0] = glyph.line
 		}
-		if glyph.index == selection_max {
-			text.selection.last_glyph = glyph_index
-			text.selection.last_line = glyph.line
+		if glyph.index == selection[1] {
+			text.selection.glyphs[1] = glyph_index
+			text.selection.lines[1] = glyph.line
 		}
 	}
 
@@ -359,7 +356,7 @@ add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
 			text.font_scale,
 			origin + glyph.offset,
 			paint = paint_index_from_option(paint),
-			bias = glyph_bias_from_paint(paint),
+			// bias = glyph_bias_from_paint(paint),
 		)
 	}
 }
