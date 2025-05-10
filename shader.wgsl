@@ -538,7 +538,7 @@ fn sd_shape(shape: Shape, p: vec2<f32>) -> f32 {
 		default: {}
 	}
 
-	if (shape.stroke > 0u && shape.width < 0.25) {
+	if (shape.stroke > 0u && shape.width < 0.5) {
 		d = 0.5;
 	}
 

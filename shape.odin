@@ -147,18 +147,22 @@ add_shape :: proc(shape: Shape, no_bounds: bool = false) -> u32 {
 	shape := shape
 	if !no_bounds {
 		bounds := get_shape_bounding_box(shape)
+
 		// Apply quad bounds
 		shape.quad_min = bounds.lo
 		shape.quad_max = bounds.hi
 	}
+
 	// Apply scissor
 	if scissor, ok := current_scissor().?; ok {
 		shape.next = scissor.shape
+
 		// Determine overlap
 		left := max(0, scissor.box.lo.x - shape.quad_min.x)
 		top := max(0, scissor.box.lo.y - shape.quad_min.y)
 		right := max(0, shape.quad_max.x - scissor.box.hi.x)
 		bottom := max(0, shape.quad_max.y - scissor.box.hi.y)
+
 		// Clip tex coords for glyphs
 		if shape.kind == .Glyph {
 			source_factor := (shape.tex_max - shape.tex_min) / (shape.quad_max - shape.quad_min)
@@ -167,23 +171,28 @@ add_shape :: proc(shape: Shape, no_bounds: bool = false) -> u32 {
 			shape.tex_max.x -= right * source_factor.x
 			shape.tex_max.y -= bottom * source_factor.y
 		}
+
 		// Clip shape quad
 		shape.quad_min.x += left
 		shape.quad_min.y += top
 		shape.quad_max.x -= right
 		shape.quad_max.y -= bottom
 	}
+
 	// Discard fully clipped shapes
 	// IMPORTANT: This is necessary to avoid crashing!
 	if shape.quad_min.x >= shape.quad_max.x || shape.quad_min.y >= shape.quad_max.y do return 0
+
 	// Try use the current matrix
 	if core.current_matrix != nil && core.current_matrix^ != core.last_matrix {
 		core.matrix_index = u32(len(core.renderer.xforms.data))
 		append(&core.renderer.xforms.data, core.current_matrix^)
 		core.last_matrix = core.current_matrix^
 	}
+
 	// Assign the shape's transform
 	shape.xform = core.matrix_index
+
 	// Append the shape
 	index := u32(len(core.renderer.shapes.data))
 	append(&core.renderer.shapes.data, shape)
@@ -607,7 +616,6 @@ add_arrow :: proc(
 	paint: Paint_Option = nil,
 ) {
 	push_matrix()
-	defer pop_matrix()
 	translate(pos)
 	rotate(angle)
 	translate(-pos)
@@ -620,6 +628,7 @@ add_arrow :: proc(
 		thickness,
 		paint = paint,
 	)
+	pop_matrix()
 }
 
 add_check :: proc(pos: [2]f32, scale: f32, thickness: f32, color: Color) {
@@ -635,3 +644,4 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
+

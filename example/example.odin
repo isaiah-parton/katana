@@ -415,11 +415,16 @@ main :: proc() {
 		//
 
 		center := state.canvas_size / 2
-		box := kn.Box{100, 200}
-		// kn.add_box(box, 10, kn.DEEP_BLUE)
-		kn.add_box_lines(box, 1, 10, kn.RED, .Stroke)
-		kn.add_box({0, 5}, paint = kn.BLUE)
-		kn.add_circle({3, 10}, 3, paint = kn.ORANGE)
+		box := kn.Box{center - 100, center + 100}
+		kn.push_scissor(kn.make_box(box))
+		kn.add_box_lines(box, 1, paint = kn.RED)
+		kn.push_matrix()
+		kn.translate(center)
+		kn.rotate(math.PI * 0.25)
+		kn.translate(-center)
+		kn.add_box(box, paint = kn.AZURE)
+		kn.pop_matrix()
+		kn.pop_scissor()
 
 		// size := linalg.abs(state.cursor_position - center)
 		// box := kn.Box{center - size, center + size}
