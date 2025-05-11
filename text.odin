@@ -346,6 +346,7 @@ closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int
 	return mouse_line if (mouse_line >= 0 && mouse_line < line_count) else nil
 }
 
+// FIXME: If `paint` is not an existing paint then it will be duplicated for every glyph
 add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
 	paint_index := paint_index_from_option(paint)
 	for &glyph in text.glyphs {
