@@ -347,17 +347,12 @@ closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int
 }
 
 add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
+	paint_index := paint_index_from_option(paint)
 	for &glyph in text.glyphs {
 		if glyph.source.lo == glyph.source.hi {
 			continue
 		}
-		add_glyph(
-			glyph,
-			text.font_scale,
-			origin + glyph.offset,
-			paint = paint_index_from_option(paint),
-			// bias = glyph_bias_from_paint(paint),
-		)
+		add_glyph(glyph, text.font_scale, origin + glyph.offset, paint = paint_index)
 	}
 }
 
@@ -465,4 +460,3 @@ add_text_scaffold :: proc(text: Text, origin: [2]f32) {
 		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = RED)
 	}
 }
-
