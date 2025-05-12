@@ -375,13 +375,25 @@ present :: proc(skip: bool = false) {
 	wgpu_buffer_update(&renderer.xforms, renderer.queue)
 	wgpu.QueueSubmit(renderer.queue, {})
 
-	atlas_texture_view := wgpu.TextureCreateView(core.atlas_texture)
-	defer wgpu.TextureViewRelease(atlas_texture_view)
-
 	when ODIN_DEBUG {
 		renderer.timers[.Upload] = time.since(t)
 		t = time.now()
 	}
+
+	atlas_texture_view := wgpu.TextureCreateView(core.atlas_texture)
+	defer wgpu.TextureViewRelease(atlas_texture_view)
+
+	atlas_sampler := wgpu.DeviceCreateSampler(
+		renderer.device,
+		&{
+			magFilter = .Linear,
+			minFilter = .Nearest,
+			addressModeU = .ClampToEdge,
+			addressModeV = .ClampToEdge,
+			maxAnisotropy = 1,
+		},
+	)
+	defer wgpu.SamplerRelease(atlas_sampler)
 
 	for &call in core.draw_calls {
 		if call.shape_count == 0 {
@@ -406,18 +418,6 @@ present :: proc(skip: bool = false) {
 				user_sampler_desc.lodMaxClamp = cast(f32)wgpu.TextureGetMipLevelCount(user_texture)
 			}
 		}
-
-		atlas_sampler := wgpu.DeviceCreateSampler(
-			renderer.device,
-			&{
-				magFilter = .Linear,
-				minFilter = .Nearest,
-				addressModeU = .ClampToEdge,
-				addressModeV = .ClampToEdge,
-				maxAnisotropy = 1,
-			},
-		)
-		defer wgpu.SamplerRelease(atlas_sampler)
 
 		user_sampler := wgpu.DeviceCreateSampler(renderer.device, &user_sampler_desc)
 		defer wgpu.SamplerRelease(user_sampler)
