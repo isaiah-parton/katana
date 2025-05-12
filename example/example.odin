@@ -411,20 +411,20 @@ main :: proc() {
 
 		kn.new_frame()
 
-		// example_gallery(&state)
+		example_gallery(&state)
 		//
 
-		center := state.canvas_size / 2
-		box := kn.Box{center - 100, center + 100}
-		kn.push_scissor(kn.make_box(box))
-		kn.add_box_lines(box, 1, paint = kn.RED)
-		kn.push_matrix()
-		kn.translate(center)
-		kn.rotate(math.PI * 0.25)
-		kn.translate(-center)
-		kn.add_box(box, paint = kn.AZURE)
-		kn.pop_matrix()
-		kn.pop_scissor()
+		// center := state.canvas_size / 2
+		// box := kn.Box{center - 100, center + 100}
+		// kn.push_scissor(kn.make_box(box))
+		// kn.add_box_lines(box, 1, paint = kn.RED)
+		// kn.push_matrix()
+		// kn.translate(center)
+		// kn.rotate(math.PI * 0.25)
+		// kn.translate(-center)
+		// kn.add_box(box, paint = kn.AZURE)
+		// kn.pop_matrix()
+		// kn.pop_scissor()
 
 		// size := linalg.abs(state.cursor_position - center)
 		// box := kn.Box{center - size, center + size}
@@ -448,21 +448,22 @@ main :: proc() {
 		// 	kn.add_box_lines({offset, offset + line.size}, 1, paint = kn.PURPLE)
 		// }
 
-		// kn.set_font(state.font)
-		// kn.add_string(
-		// 	fmt.tprintf("FPS: %.0f", kn.get_fps()),
-		// 	origin = {},
-		// 	size = 16,
-		// 	paint = kn.LIME_GREEN,
-		// )
+		kn.set_font(state.font)
+		kn.add_string(
+			fmt.tprintf("FPS: %.0f", kn.get_fps()),
+			origin = {},
+			size = 16,
+			paint = kn.LIME_GREEN,
+		)
+
 
 		{
 			text := "[A] toggle animation\n[Z] toggle fps limit"
-			kn.set_font(state.font)
 			kn.add_string(text, 16, {0, state.canvas_size.y}, align = {0, 1}, paint = kn.WHITE)
 		}
 
 		kn.present()
+		fmt.println(kn.core.renderer.timers)
 
 		free_all(context.temp_allocator)
 	}

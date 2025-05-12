@@ -358,12 +358,13 @@ add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
 }
 
 add_text_range :: proc(text: Text, range: [2]int, origin: [2]f32, paint: Paint_Option = nil) {
+	paint_index := paint_index_from_option(paint)
 	for &glyph in text.glyphs[range[0]:max(range[0], range[1])] {
 		add_glyph(
 			glyph,
 			text.font_scale,
 			origin + glyph.offset,
-			paint = paint_index_from_option(paint),
+			paint = paint_index,
 			bias = glyph_bias_from_paint(paint),
 		)
 	}
@@ -461,3 +462,4 @@ add_text_scaffold :: proc(text: Text, origin: [2]f32) {
 		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = RED)
 	}
 }
+

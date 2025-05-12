@@ -100,6 +100,7 @@ Renderer :: struct {
 	paints:                    WGPU_Buffer(Paint),
 	cvs:                       WGPU_Buffer([2]f32),
 	xforms:                    WGPU_Buffer(Matrix),
+	last_uniform:              Shader_Uniforms,
 	timers:                    [Debug_Timer]time.Duration,
 }
 
@@ -344,40 +345,28 @@ present :: proc(skip: bool = false) {
 		},
 	)
 	wgpu.RenderPassEncoderSetPipeline(rpass, renderer.pipeline)
-	wgpu.RenderPassEncoderSetViewport(
-		rpass,
-		0,
-		0,
-		max(surface_width, 1),
-		max(surface_height, 1),
-		0,
-		0,
-	)
 
-	wgpu.RenderPassEncoderSetBindGroup(rpass, 0, renderer.uniform_bind_group)
-	wgpu.QueueWriteBuffer(
-		renderer.queue,
-		renderer.uniform_buffer,
-		0,
-		&uniform,
-		size_of(Shader_Uniforms),
-	)
+	// TODO: Is this necessary?
+	// wgpu.RenderPassEncoderSetViewport(
+	// 	rpass,
+	// 	0,
+	// 	0,
+	// 	max(surface_width, 1),
+	// 	max(surface_height, 1),
+	// 	0,
+	// 	0,
+	// )
 
-	when ODIN_DEBUG {
-		renderer.timers[.Setup] = time.since(t)
-		t = time.now()
-	}
-
-	wgpu.RenderPassEncoderSetBindGroup(rpass, 2, renderer.storage_bind_group)
-	wgpu_buffer_update(&renderer.shapes, renderer.queue)
-	wgpu_buffer_update(&renderer.paints, renderer.queue)
-	wgpu_buffer_update(&renderer.cvs, renderer.queue)
-	wgpu_buffer_update(&renderer.xforms, renderer.queue)
-	wgpu.QueueSubmit(renderer.queue, {})
-
-	when ODIN_DEBUG {
-		renderer.timers[.Upload] = time.since(t)
-		t = time.now()
+	if uniform != renderer.last_uniform {
+		wgpu.RenderPassEncoderSetBindGroup(rpass, 0, renderer.uniform_bind_group)
+		wgpu.QueueWriteBuffer(
+			renderer.queue,
+			renderer.uniform_buffer,
+			0,
+			&uniform,
+			size_of(Shader_Uniforms),
+		)
+		renderer.last_uniform = uniform
 	}
 
 	atlas_texture_view := wgpu.TextureCreateView(core.atlas_texture)
@@ -394,6 +383,25 @@ present :: proc(skip: bool = false) {
 		},
 	)
 	defer wgpu.SamplerRelease(atlas_sampler)
+
+	when ODIN_DEBUG {
+		renderer.timers[.Setup] = time.since(t)
+		t = time.now()
+	}
+
+	wgpu.RenderPassEncoderSetBindGroup(rpass, 2, renderer.storage_bind_group)
+	wgpu_buffer_update(&renderer.shapes, renderer.queue)
+	wgpu_buffer_update(&renderer.paints, renderer.queue)
+	wgpu_buffer_update(&renderer.cvs, renderer.queue)
+	wgpu_buffer_update(&renderer.xforms, renderer.queue)
+
+	// TODO: WHAT??!?!
+	// wgpu.QueueSubmit(renderer.queue, {})
+
+	when ODIN_DEBUG {
+		renderer.timers[.Upload] = time.since(t)
+		t = time.now()
+	}
 
 	for &call in core.draw_calls {
 		if call.shape_count == 0 {

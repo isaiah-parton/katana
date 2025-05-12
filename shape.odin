@@ -209,14 +209,14 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo = shape.quad_min
 		box.hi = shape.quad_max
 	case .Line_Segment:
-		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width - 1
-		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width + 1
+		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width
+		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width
 	case .Box:
-		box.lo = shape.cv0 - 1
-		box.hi = shape.cv1 + 1
+		box.lo = shape.cv0
+		box.hi = shape.cv1
 	case .Circle:
-		box.lo = shape.cv0 - shape.radius[0] - 1
-		box.hi = shape.cv0 + shape.radius[0] + 1
+		box.lo = shape.cv0 - shape.radius[0]
+		box.hi = shape.cv0 + shape.radius[0]
 	case .Path:
 		for i in 0 ..< shape.count * 3 {
 			j := shape.start + i

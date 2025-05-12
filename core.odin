@@ -95,6 +95,7 @@ surface_configuration :: proc(
 	})
 	config = wgpu.SurfaceConfiguration {
 		device      = device,
+		// It seems that if this is set to `.Fifo`, the draw time decreases, but so does responsiveness in interactive programs (UI seems to lag one or two frames). `.Immediate` seems to offer the smoothest updates.
 		presentMode = .Immediate,
 		alphaMode   = .Opaque,
 		format      = caps.formats[0] if caps.formatCount > 0 else .BGRA8Unorm,
@@ -120,7 +121,10 @@ destroy_platform :: proc(self: ^Platform) {
 	wgpu.InstanceRelease(self.instance)
 }
 
-platform_get_adapter_and_device :: proc(platform: ^Platform) {
+platform_get_adapter_and_device :: proc(
+	platform: ^Platform,
+	power_preference: wgpu.PowerPreference = .LowPower,
+) {
 	on_device :: proc "c" (
 		status: wgpu.RequestDeviceStatus,
 		device: wgpu.Device,
@@ -178,7 +182,7 @@ platform_get_adapter_and_device :: proc(platform: ^Platform) {
 
 	wgpu.InstanceRequestAdapter(
 		platform.instance,
-		&{powerPreference = .LowPower, compatibleSurface = platform.surface},
+		&{powerPreference = power_preference, compatibleSurface = platform.surface},
 		{callback = on_adapter, userdata1 = platform},
 	)
 }
@@ -202,7 +206,6 @@ make_platform_glfwglue :: proc(window: glfw.WindowHandle) -> (platform: Platform
 		platform.adapter,
 		platform.surface,
 	)
-	core.renderer.surface_config = platform.surface_config
 
 	width, height := glfw.GetWindowSize(window)
 	platform.surface_config.width = u32(width)
@@ -214,11 +217,15 @@ make_platform_glfwglue :: proc(window: glfw.WindowHandle) -> (platform: Platform
 }
 
 start_on_platform :: proc(platform: Platform) {
-	core.renderer.surface_config = platform.surface_config
-	start(platform.device, platform.surface)
+	start(platform.device, platform.surface, platform.surface_config)
 }
 
-start :: proc(device: wgpu.Device, surface: wgpu.Surface) {
+start :: proc(
+	device: wgpu.Device,
+	surface: wgpu.Surface,
+	surface_config: wgpu.SurfaceConfiguration,
+) {
+	core.renderer.surface_config = surface_config
 	init_renderer_with_device_and_surface(&core.renderer, device, surface)
 
 	core.atlas_size = f32(min(core.renderer.device_limits.maxTextureDimension2D, 8196))
