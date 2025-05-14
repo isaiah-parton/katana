@@ -5,7 +5,12 @@ import "vendor:sdl3"
 import "vendor:wgpu"
 import "vendor:wgpu/sdl3glue"
 
-make_platform_sdl3glue :: proc(window: ^sdl3.Window) -> (platform: kn.Platform) {
+make_platform_sdl3glue :: proc(
+	window: ^sdl3.Window,
+	vsync: bool = false,
+) -> (
+	platform: kn.Platform,
+) {
 	platform.instance = wgpu.CreateInstance() // &{
 	// 	nextInChain = &wgpu.InstanceExtras {
 	// 		sType = .InstanceExtras,
@@ -28,6 +33,7 @@ make_platform_sdl3glue :: proc(window: ^sdl3.Window) -> (platform: kn.Platform) 
 		platform.device,
 		platform.adapter,
 		platform.surface,
+		.Fifo if vsync else .Immediate,
 	)
 
 	width, height: i32

@@ -71,10 +71,14 @@ set_clear_color :: proc(color: Color) {
 	core.clear_color = color
 }
 
+// **Create a SurfaceConfiguration**
+//
+// It seems that if this is set to `.Fifo`, the draw time decreases, but so does responsiveness in interactive programs (UI seems to lag one or two frames). `.Immediate` seems to offer the smoothest updates.
 surface_configuration :: proc(
 	device: wgpu.Device,
 	adapter: wgpu.Adapter,
 	surface: wgpu.Surface,
+	presentMode: wgpu.PresentMode = .Immediate,
 ) -> (
 	config: wgpu.SurfaceConfiguration,
 	ok: bool,
@@ -95,8 +99,7 @@ surface_configuration :: proc(
 	})
 	config = wgpu.SurfaceConfiguration {
 		device      = device,
-		// It seems that if this is set to `.Fifo`, the draw time decreases, but so does responsiveness in interactive programs (UI seems to lag one or two frames). `.Immediate` seems to offer the smoothest updates.
-		presentMode = .Immediate,
+		presentMode = presentMode,
 		alphaMode   = .Opaque,
 		format      = caps.formats[0] if caps.formatCount > 0 else .BGRA8Unorm,
 		usage       = {.RenderAttachment},
