@@ -213,10 +213,10 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width
 	case .Box:
 		box.lo = shape.cv0
-		box.hi = shape.cv1
+		box.hi = shape.cv1 + 1
 	case .Circle:
 		box.lo = shape.cv0 - shape.radius[0]
-		box.hi = shape.cv0 + shape.radius[0]
+		box.hi = shape.cv0 + shape.radius[0] + 1
 	case .Path:
 		for i in 0 ..< shape.count * 3 {
 			j := shape.start + i
