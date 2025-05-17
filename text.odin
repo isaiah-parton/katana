@@ -263,8 +263,8 @@ make_text_with_reader :: proc(
 
 		if b.char == '\n' {
 			if b.last_char != 0 {
-				end_line_on_glyph(&b, next_glyph_index - 1)
-				start_line_on_glyph(&b, next_glyph_index)
+				end_line_on_glyph(&b, next_glyph_index)
+				start_line_on_glyph(&b, next_glyph_index + 1)
 			}
 		} else if b.at_end {
 			end_line_on_glyph(&b, next_glyph_index)
