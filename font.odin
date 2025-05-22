@@ -143,7 +143,7 @@ load_font_from_slices :: proc(
 	font.glyphs = glyphs[:]
 	ok = true
 
-	if glyph, ok := get_font_glyph(font, ' '); ok {
+	if glyph, ok := get_font_glyph(&font, ' '); ok {
 		font.space_advance = glyph.advance
 	}
 
@@ -152,7 +152,7 @@ load_font_from_slices :: proc(
 	return
 }
 
-get_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
+get_font_glyph :: proc(font: ^Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
 	index := int(char - font.first_rune)
 	ok = index >= 0 && index < len(font.glyphs)
 	if !ok do return
@@ -176,4 +176,3 @@ make_default_font :: proc() {
 
 DEFAULT_FONT_IMAGE :: #load("font.png", []u8)
 DEFAULT_FONT_JSON :: #load("font.json", []u8)
-

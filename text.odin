@@ -228,7 +228,7 @@ make_text_with_reader :: proc(
 			}
 			b.is_white_space = true
 		} else {
-			b.glyph, glyph_found = find_font_glyph(b.font, b.char)
+			b.glyph, glyph_found = find_font_glyph(&b.font, b.char)
 			b.is_white_space = unicode.is_white_space(b.char)
 		}
 
@@ -331,10 +331,10 @@ make_selectable :: proc(text: Text, point: [2]f32, selection: [2]int) -> Selecta
 	return text
 }
 
-find_font_glyph :: proc(font: Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
+find_font_glyph :: proc(font: ^Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
 	glyph, ok = get_font_glyph(font, char)
 	if !ok {
-		glyph, ok = get_font_glyph(core.fallback_font, char)
+		glyph, ok = get_font_glyph(&core.fallback_font, char)
 	}
 	return
 }
@@ -430,7 +430,7 @@ add_rune :: proc(
 	size: f32,
 	origin: [2]f32,
 	align: [2]f32 = 0,
-	font: Font = core.current_font,
+	font: ^Font,
 	paint: Paint_Option = nil,
 ) -> u32 {
 	glyph, ok := get_font_glyph(font, char)
@@ -462,4 +462,3 @@ add_text_scaffold :: proc(text: Text, origin: [2]f32) {
 		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = RED)
 	}
 }
-

@@ -591,8 +591,8 @@ add_box_shadow :: proc(box: Box, corner_radius, blur_radius: f32, color: Color) 
 		Shape {
 			kind = .Blurred_Box,
 			radius = corner_radius,
-			cv0 = box.lo,
-			cv1 = box.hi,
+			cv0 = box.lo - blur_radius,
+			cv1 = box.hi + blur_radius,
 			cv2 = {0 = blur_radius},
 			paint = paint_index_from_option(color),
 		},
@@ -644,4 +644,3 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
-
