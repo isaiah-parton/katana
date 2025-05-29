@@ -212,7 +212,7 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo = linalg.min(shape.cv0, shape.cv1) - shape.width
 		box.hi = linalg.max(shape.cv0, shape.cv1) + shape.width
 	case .Box:
-		box.lo = shape.cv0
+		box.lo = shape.cv0 - 1
 		box.hi = shape.cv1 + 1
 	case .Circle:
 		box.lo = shape.cv0 - shape.radius[0]
@@ -644,3 +644,4 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
+
