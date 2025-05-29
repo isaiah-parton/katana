@@ -118,27 +118,48 @@ add_linked_shapes :: proc(
 	mode: Shape_Mode = .Union,
 	paint: Paint_Option = nil,
 ) -> u32 {
-	shape: Shape
+	if len(shapes) == 0 {
+		return 0
+	}
+
+	base_shape := shapes[0]
+
+	if len(shapes) > 1 {
+		base_shape.mode = mode
+		base_shape.next = u32(len(core.renderer.shapes.data))
+	}
+
 	bounds := Box{math.F32_MAX, 0}
-	for i := len(shapes) - 1; i > 0; i -= 1 {
-		shape = shapes[i - 1]
-		next_shape := shapes[i]
-		next_shape.mode = mode
-		shape.next = u32(len(core.renderer.shapes.data))
-		append(&core.renderer.shapes.data, next_shape)
-		if next_shape.mode != .Intersection {
-			shape_bb := get_shape_bounding_box(next_shape)
+
+	for &shape, i in shapes[1:] {
+		shape.mode = mode
+
+		if i > 0 {
+			core.renderer.shapes.data[len(core.renderer.shapes.data) - 1].next = u32(
+				len(core.renderer.shapes.data),
+			)
+		}
+
+		append(&core.renderer.shapes.data, shape)
+
+		if mode != .Intersection {
+			shape_bb := get_shape_bounding_box(shape)
 			bounds.lo = linalg.min(bounds.lo, shape_bb.lo)
 			bounds.hi = linalg.max(bounds.hi, shape_bb.hi)
 		}
 	}
-	shape_bb := get_shape_bounding_box(shape)
+
+	shape_bb := get_shape_bounding_box(base_shape)
+
 	bounds.lo = linalg.min(bounds.lo, shape_bb.lo)
 	bounds.hi = linalg.max(bounds.hi, shape_bb.hi)
-	shape.quad_min = bounds.lo
-	shape.quad_max = bounds.hi
-	shape.paint = paint_index_from_option(paint)
-	return add_shape(shape, true)
+
+	base_shape.quad_min = bounds.lo
+	base_shape.quad_max = bounds.hi
+
+	base_shape.paint = paint_index_from_option(paint)
+
+	return add_shape(base_shape, true)
 }
 
 // Applies the current transform matrix and scissor, then queues the shape to

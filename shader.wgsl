@@ -644,6 +644,11 @@ fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance
   return out;
 }
 
+fn smin(a: f32, b: f32, k: f32) -> f32 {
+	let r = exp2(-a / k) + exp2(-b / k);
+	return -k * log2(r);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	var out: vec4<f32>;
@@ -673,7 +678,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 			switch (shape.mode) {
 				// Union
 				case 0u: {
-					d = min(d, sd_shape(shape, in.p));
+					d = smin(d, sd_shape(shape, in.p), 1.5);
 				}
 				// Subtraction
 				case 1u: {
