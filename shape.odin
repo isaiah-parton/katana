@@ -83,7 +83,7 @@ make_arc :: proc(center: [2]f32, from, to, inner, outer: f32, squared: bool = fa
 	if from > to do from, to = to, from
 	th0 := -(from + (to - from) * 0.5) + math.PI
 	th1 := (to - from) / 2
-	width := outer - inner
+	width := (outer - inner) / 2
 	return Shape {
 		kind = .Arc,
 		cv0 = center,
@@ -259,8 +259,8 @@ get_shape_bounding_box :: proc(shape: Shape) -> Box {
 		box.lo = shape.cv0 - shape.cv2.x * 3
 		box.hi = shape.cv1 + shape.cv2.x * 3
 	case .Arc:
-		box.lo = shape.cv0 - shape.radius[0] - shape.radius[1]
-		box.hi = shape.cv0 + shape.radius[0] + shape.radius[1]
+		box.lo = shape.cv0 - shape.radius[0] - shape.radius[1] - 1
+		box.hi = shape.cv0 + shape.radius[0] + shape.radius[1] + 1
 	case .Pie:
 		box.lo = shape.cv0 - shape.radius[0]
 		box.hi = shape.cv0 + shape.radius[0]

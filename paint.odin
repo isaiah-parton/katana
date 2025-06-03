@@ -21,8 +21,6 @@ package katana
 // 		stroke_box(..., paint0)
 // 		stroke_box(..., paint1)
 //
-//
-//
 import "core:fmt"
 import "core:math"
 import "core:math/linalg"
