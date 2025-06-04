@@ -90,7 +90,7 @@ make_arc :: proc(center: [2]f32, from, to, inner, outer: f32, squared: bool = fa
 		cv1 = [2]f32{math.sin(th0), math.cos(th0)},
 		cv2 = [2]f32{math.sin(th1), math.cos(th1)},
 		start = u32(squared),
-		radius = {0 = inner, 1 = width},
+		radius = {0 = inner + width, 1 = width},
 	}
 }
 
@@ -665,4 +665,3 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
-
