@@ -367,9 +367,7 @@ Stack :: struct($T: typeid, $N: int) {
 }
 
 push_stack :: proc(stack: ^Stack($T, $N), item: T) -> bool {
-	if stack.height < 0 || stack.height >= N {
-		return false
-	}
+	assert(stack.height < N)
 	stack.items[stack.height] = item
 	stack.height += 1
 	return true
