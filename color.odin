@@ -167,6 +167,10 @@ LINEN :: Color{250, 240, 230, 255}
 LAVENDER_BLUSH :: Color{255, 240, 245, 255}
 MISTY_ROSE :: Color{255, 228, 225, 255}
 
+color_from_rgba :: proc(rgba: [4]f32) -> Color {
+	return {u8(rgba.r * 255), u8(rgba.g * 255), u8(rgba.b * 255), u8(rgba.a * 255)}
+}
+
 parse_rgba :: proc(str: string) -> (res: Color, ok: bool) {
 	strs := strings.split(str, ", ")
 	defer delete(strs)

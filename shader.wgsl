@@ -307,7 +307,7 @@ fn rounded_box_shadow_x(x: f32, y: f32, sigma: f32, corner: f32, half_size: vec2
 // Math helpers
 fn gaussian(x: f32, sigma: f32) -> f32 {
 	let pi: f32 = 3.141592653589793;
-  return exp(-(x * x) / (2.0 * sigma * sigma)) / (sqrt(2.0 * pi) * sigma);
+	return exp(-(x * x) / (2.0 * sigma * sigma)) / (sqrt(2.0 * pi) * sigma);
 }
 fn dot2(v: vec2<f32>) -> f32 {
     return dot(v, v);

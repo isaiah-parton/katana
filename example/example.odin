@@ -324,7 +324,7 @@ example_gallery :: proc(state: ^State) {
 			(0.2 * max(0, math.sin(state.animation_time * 2))),
 		)
 		kn.scale({math.sin(math.mod(state.animation_time - 0.5, 1) * math.TAU), 1})
-		kn.add_rune(rune(65 + (int(state.animation_time) % 26)), 90, 0, 0.5)
+		kn.add_rune(rune(65 + (int(state.animation_time) % 26)), 90, 0, 0.5, &state.font)
 		kn.pop_matrix()
 	}
 }

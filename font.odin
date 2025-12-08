@@ -153,6 +153,9 @@ load_font_from_slices :: proc(
 }
 
 get_font_glyph :: proc(font: ^Font, char: rune) -> (glyph: Font_Glyph, ok: bool) {
+	if char == 0xd {
+		return
+	}
 	index := int(char - font.first_rune)
 	ok = index >= 0 && index < len(font.glyphs)
 	if !ok do return
@@ -176,3 +179,4 @@ make_default_font :: proc() {
 
 DEFAULT_FONT_IMAGE :: #load("font.png", []u8)
 DEFAULT_FONT_JSON :: #load("font.json", []u8)
+

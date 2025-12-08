@@ -240,7 +240,7 @@ init_renderer_with_device_and_surface :: proc(
 			label = "RenderPipeline",
 			layout = pipeline_layout,
 			vertex = {module = module, entryPoint = "vs_main"},
-			fragment = &{
+			fragment = &wgpu.FragmentState {
 				module = module,
 				entryPoint = "fs_main",
 				targetCount = 1,
@@ -291,11 +291,11 @@ present :: proc(skip: bool = false) {
 	defer if surface_texture.texture != nil do wgpu.TextureRelease(surface_texture.texture)
 
 	switch surface_texture.status {
-	case .Error:
-		fmt.eprintln("Unknown error acquiring surface texture")
+	case .SuccessOptimal:
 	case .SuccessSuboptimal:
 		return
-	case .SuccessOptimal:
+	case .Error:
+		fmt.eprintln("Unknown error acquiring surface texture")
 	case .Timeout, .Outdated, .Lost:
 		if surface_texture.texture != nil {
 			wgpu.TextureRelease(surface_texture.texture)
@@ -334,7 +334,7 @@ present :: proc(skip: bool = false) {
 
 	rpass := wgpu.CommandEncoderBeginRenderPass(
 		encoder,
-		&{
+		&wgpu.RenderPassDescriptor {
 			colorAttachmentCount = 1,
 			colorAttachments = &wgpu.RenderPassColorAttachment {
 				view = surface_view,

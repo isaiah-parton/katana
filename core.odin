@@ -90,7 +90,7 @@ surface_configuration :: proc(
 	if status == .Error {
 		return
 	}
-	// Prefer non-SRGB formats 🤭
+	// Prefer non-SRGB formats 👹
 	slice.sort_by(caps.formats[:caps.formatCount], proc(i, j: wgpu.TextureFormat) -> bool {
 		if i == j {
 			return false
@@ -100,7 +100,7 @@ surface_configuration :: proc(
 	config = wgpu.SurfaceConfiguration {
 		device      = device,
 		presentMode = presentMode,
-		alphaMode   = .Opaque,
+		alphaMode   = .Auto,
 		format      = caps.formats[0] if caps.formatCount > 0 else .BGRA8Unorm,
 		usage       = {.RenderAttachment},
 	}
@@ -345,6 +345,7 @@ get_atlas_box :: proc(size: [2]f32) -> Box {
 
 copy_image_to_atlas :: proc(data: rawptr, width, height: int) -> Box {
 	box := get_atlas_box([2]f32{f32(width), f32(height)})
+	assert(box.lo.x <= box.hi.x && box.lo.y <= box.hi.y)
 	wgpu.QueueWriteTexture(
 		core.renderer.queue,
 		&{texture = core.atlas_texture, origin = {x = u32(box.lo.x), y = u32(box.lo.y)}},
