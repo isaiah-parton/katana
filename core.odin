@@ -28,8 +28,8 @@ Core :: struct {
 	default_font:         Font,
 	current_font:         Font,
 	fallback_font:        Font,
-	scissor_stack:        Stack(Scissor, 8),
-	scissor_stack_stack:  Stack(Stack(Scissor, 8), 8),
+	scissor_stack:        Stack(Scissor, 32),
+	scissor_stack_stack:  Stack(Stack(Scissor, 32), 8), // bruh
 	disable_scissor:      bool,
 	opacity:              f32,
 	draw_calls:           [dynamic]Draw_Call,
@@ -367,8 +367,8 @@ Stack :: struct($T: typeid, $N: int) {
 	height: int,
 }
 
-push_stack :: proc(stack: ^Stack($T, $N), item: T) -> bool {
-	assert(stack.height < N)
+push_stack :: proc(stack: ^Stack($T, $N), item: T, loc := #caller_location) -> bool {
+	assert(stack.height < N, loc = loc)
 	stack.items[stack.height] = item
 	stack.height += 1
 	return true
