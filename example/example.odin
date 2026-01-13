@@ -43,7 +43,7 @@ State :: struct {
 	canvas_size:                   [2]f32,
 	frame_seconds:                 f32,
 	last_frame_time:               time.Time,
-	image_source:                  kn.Box,
+	image:                         kn.Atlas_Resource,
 	should_close:                  bool,
 	font:                          kn.Font,
 	icon_font:                     kn.Font,
@@ -171,7 +171,7 @@ example_gallery :: proc(state: ^State) {
 		container_center := (container.lo + container.hi) / 2
 		kn.fill_path(
 			kn.make_atlas_sample(
-				state.image_source,
+				&state.image,
 				{container_center - radius, container_center + radius},
 				kn.WHITE,
 			),
@@ -363,11 +363,11 @@ main :: proc() {
 	image_channels: i32
 	image_data := image.load("image.png", &image_width, &image_height, &image_channels, 4)
 	if image_data != nil {
-		state.image_source = kn.copy_image_to_atlas(
-			image_data,
-			int(image_width),
-			int(image_height),
-		)
+		state.image = kn.Atlas_Resource {
+			pixels = image_data,
+			width  = int(image_width),
+			height = int(image_height),
+		}
 	}
 
 	// Frame loop

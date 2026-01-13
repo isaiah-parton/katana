@@ -13,14 +13,20 @@ import "core:unicode/utf8"
 import stbi "vendor:stb/image"
 import "vendor:wgpu"
 
+Font_Glyph_Source :: struct {
+	left, top, right, bottom: f32,
+}
+
 Font_Glyph :: struct {
 	// UV location in source texture
-	source:  Box,
-	bounds:  Box,
-	advance: f32,
+	image_source: Font_Glyph_Source,
+	atlas_source: Box,
+	bounds:       Box,
+	advance:      f32,
 }
 
 Font :: struct {
+	atlas_resource:    Atlas_Resource,
 	first_rune:        rune,
 	// em_size:               f32,
 	size:              f32,
@@ -74,7 +80,12 @@ load_font_from_slices :: proc(
 	)
 
 	if bitmap_data == nil do return
-	atlas_source := copy_image_to_atlas(bitmap_data, int(width), int(height))
+
+	font.atlas_resource = {
+		pixels = bitmap_data,
+		width  = int(width),
+		height = int(height),
+	}
 
 	json_value, json_err := json.parse(json_data)
 	defer json.destroy_value(json_value)
@@ -122,15 +133,11 @@ load_font_from_slices :: proc(
 			glyph.bounds.hi.y += adjustment
 		}
 		if atlas_bounds_obj, ok := glyph_obj["atlasBounds"].(json.Object); ok {
-			glyph.source = Box {
-				{
-					atlas_source.lo.x + f32(atlas_bounds_obj["left"].(json.Float) or_return),
-					atlas_source.hi.y - f32(atlas_bounds_obj["top"].(json.Float) or_return),
-				},
-				{
-					atlas_source.lo.x + f32(atlas_bounds_obj["right"].(json.Float) or_return),
-					atlas_source.hi.y - f32(atlas_bounds_obj["bottom"].(json.Float) or_return),
-				},
+			glyph.image_source = Font_Glyph_Source {
+				left   = f32(atlas_bounds_obj["left"].(json.Float) or_return),
+				top    = f32(atlas_bounds_obj["top"].(json.Float) or_return),
+				right  = f32(atlas_bounds_obj["right"].(json.Float) or_return),
+				bottom = f32(atlas_bounds_obj["bottom"].(json.Float) or_return),
 			}
 		}
 		if i == 0 {
@@ -160,6 +167,13 @@ get_font_glyph :: proc(font: ^Font, char: rune) -> (glyph: Font_Glyph, ok: bool)
 	ok = index >= 0 && index < len(font.glyphs)
 	if !ok do return
 	#no_bounds_check glyph = font.glyphs[index]
+	source := atlas_get(&core.font_atlas, &font.atlas_resource)
+	glyph.atlas_source = Box {
+		[2]f32{source.lo.x + glyph.image_source.left, source.hi.y - glyph.image_source.top} /
+		core.font_atlas.size,
+		[2]f32{source.lo.x + glyph.image_source.right, source.hi.y - glyph.image_source.bottom} /
+		core.font_atlas.size,
+	}
 	return
 }
 

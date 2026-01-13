@@ -350,7 +350,7 @@ closest_line_of_text :: proc(offset, text_height, line_height: f32) -> Maybe(int
 add_text :: proc(text: Text, origin: [2]f32, paint: Paint_Option = nil) {
 	paint_index := paint_index_from_option(paint)
 	for &glyph in text.glyphs {
-		if glyph.source.lo == glyph.source.hi {
+		if glyph.atlas_source.lo == glyph.atlas_source.hi {
 			continue
 		}
 		add_glyph(glyph, text.font_scale, origin + glyph.offset, paint = paint_index)
@@ -417,8 +417,8 @@ add_string_wrapped :: proc(
 make_glyph :: proc(glyph: Font_Glyph, size: f32, origin: [2]f32, bias: f32 = 0) -> Shape {
 	return Shape {
 		kind = .Glyph,
-		tex_min = glyph.source.lo / core.atlas_size,
-		tex_max = glyph.source.hi / core.atlas_size,
+		tex_min = glyph.atlas_source.lo,
+		tex_max = glyph.atlas_source.hi,
 		quad_min = origin + glyph.bounds.lo * size,
 		quad_max = origin + glyph.bounds.hi * size,
 		radius = {0 = bias},
@@ -462,3 +462,4 @@ add_text_scaffold :: proc(text: Text, origin: [2]f32) {
 		add_box_lines({origin + line.offset, origin + line.offset + line.size}, 1, paint = RED)
 	}
 }
+

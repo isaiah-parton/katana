@@ -284,6 +284,8 @@ present :: proc(skip: bool = false) {
 			len(core.renderer.shapes.data) - core.current_draw_call.first_shape
 	}
 
+	wgpu.QueueSubmit(core.renderer.queue, {})
+
 	encoder := wgpu.DeviceCreateCommandEncoder(renderer.device)
 	defer wgpu.CommandEncoderRelease(encoder)
 
@@ -316,7 +318,7 @@ present :: proc(skip: bool = false) {
 		size            = {surface_width, surface_height},
 		time            = f32(time.duration_seconds(time.since(core.start_time))),
 		gamma           = 1.0,
-		text_unit_range = 2.0 / core.atlas_size,
+		text_unit_range = 2.0 / core.font_atlas.size,
 		text_out_bias   = 0.0,
 		text_in_bias    = 0.0,
 	}
@@ -369,7 +371,7 @@ present :: proc(skip: bool = false) {
 		renderer.last_uniform = uniform
 	}
 
-	atlas_texture_view := wgpu.TextureCreateView(core.atlas_texture)
+	atlas_texture_view := wgpu.TextureCreateView(core.font_atlas.texture)
 	defer wgpu.TextureViewRelease(atlas_texture_view)
 
 	atlas_sampler := wgpu.DeviceCreateSampler(

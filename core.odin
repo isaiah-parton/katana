@@ -13,40 +13,38 @@ core: Core
 
 @(private)
 Core :: struct {
-	renderer:             Renderer,
-	clear_color:          Color,
-	start_time:           time.Time,
-	frame_time:           time.Time,
-	frames_this_second:   int,
-	last_second:          time.Time,
-	delta_time:           f32,
-	fps:                  f32,
-	matrix_stack:         Stack(Matrix, 128),
-	current_matrix:       ^Matrix,
-	last_matrix:          Matrix,
-	matrix_index:         u32,
-	default_font:         Font,
-	current_font:         Font,
-	fallback_font:        Font,
-	scissor_stack:        Stack(Scissor, 32),
-	scissor_stack_stack:  Stack(Stack(Scissor, 32), 8), // bruh
-	disable_scissor:      bool,
-	opacity:              f32,
-	draw_calls:           [dynamic]Draw_Call,
-	draw_call_index:      int,
-	current_draw_call:    ^Draw_Call,
-	user_texture:         wgpu.Texture,
-	atlas_texture:        wgpu.Texture,
-	atlas_size:           f32,
-	atlas_offset:         [2]f32,
-	atlas_content_height: f32,
-	paint:                Paint_Index,
-	shape:                u32,
-	xform:                u32,
-	path_start:           u32,
-	path_point:           [2]f32,
-	affector:             Maybe(u32),
+	renderer:            Renderer,
+	clear_color:         Color,
+	start_time:          time.Time,
+	frame_time:          time.Time,
+	frames_this_second:  int,
+	last_second:         time.Time,
+	delta_time:          f32,
+	fps:                 f32,
+	matrix_stack:        Stack(Matrix, 128),
+	current_matrix:      ^Matrix,
+	last_matrix:         Matrix,
+	matrix_index:        u32,
+	default_font:        Font,
+	current_font:        Font,
+	fallback_font:       Font,
+	scissor_stack:       Stack(Scissor, 32),
+	scissor_stack_stack: Stack(Stack(Scissor, 32), 8), // bruh
+	disable_scissor:     bool,
+	opacity:             f32,
+	draw_calls:          [dynamic]Draw_Call,
+	draw_call_index:     int,
+	current_draw_call:   ^Draw_Call,
+	user_texture:        wgpu.Texture,
+	font_atlas:          Atlas,
+	paint:               Paint_Index,
+	shape:               u32,
+	xform:               u32,
+	path_start:          u32,
+	path_point:          [2]f32,
+	affector:            Maybe(u32),
 }
+
 
 draw_call_count :: proc() -> int {
 	return len(core.draw_calls)
@@ -231,19 +229,7 @@ start :: proc(
 	core.renderer.surface_config = surface_config
 	init_renderer_with_device_and_surface(&core.renderer, device, surface)
 
-	core.atlas_size = f32(min(core.renderer.device_limits.maxTextureDimension2D, 8196))
-	atlas_depth := f32(min(core.renderer.device_limits.maxTextureDimension3D, 4))
-	core.atlas_texture = wgpu.DeviceCreateTexture(
-		core.renderer.device,
-		&{
-			usage = {.CopySrc, .CopyDst, .TextureBinding},
-			dimension = ._2D,
-			size = {u32(core.atlas_size), u32(core.atlas_size), 1},
-			format = .RGBA8Unorm,
-			mipLevelCount = 1,
-			sampleCount = 1,
-		},
-	)
+	atlas_init(&core.font_atlas)
 
 	make_default_font()
 
@@ -254,7 +240,7 @@ start :: proc(
 shutdown :: proc() {
 	destroy_font(&core.default_font)
 	delete(core.draw_calls)
-	wgpu.TextureDestroy(core.atlas_texture)
+	atlas_uninit(&core.font_atlas)
 	destroy_renderer(&core.renderer)
 }
 
@@ -329,38 +315,6 @@ frame_time :: proc() -> f32 {
 	return core.delta_time
 }
 
-get_atlas_box :: proc(size: [2]f32) -> Box {
-	if core.atlas_offset.x + size.x > core.atlas_size {
-		core.atlas_offset = {0, core.atlas_content_height}
-		core.atlas_content_height = 0
-		if core.atlas_offset.y + size.y > core.atlas_size {
-			core.atlas_offset = {}
-		}
-	}
-	box := Box{core.atlas_offset, core.atlas_offset + size}
-	core.atlas_offset.x += size.x
-	core.atlas_content_height = max(core.atlas_content_height, size.y)
-	return box
-}
-
-copy_image_to_atlas :: proc(data: rawptr, width, height: int) -> Box {
-	box := get_atlas_box([2]f32{f32(width), f32(height)})
-	assert(box.lo.x <= box.hi.x && box.lo.y <= box.hi.y)
-	wgpu.QueueWriteTexture(
-		core.renderer.queue,
-		&{texture = core.atlas_texture, origin = {x = u32(box.lo.x), y = u32(box.lo.y)}},
-		data,
-		uint(width * height * 4),
-		&{bytesPerRow = u32(box.hi.x - box.lo.x) * 4, rowsPerImage = u32(box.hi.y - box.lo.y)},
-		&{
-			width = u32(box.hi.x - box.lo.x),
-			height = u32(box.hi.y - box.lo.y),
-			depthOrArrayLayers = 1,
-		},
-	)
-	wgpu.QueueSubmit(core.renderer.queue, {})
-	return box
-}
 
 Stack :: struct($T: typeid, $N: int) {
 	items:  [N]T,

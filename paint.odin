@@ -215,12 +215,12 @@ make_tri_gradient :: proc(points: [3][2]f32, colors: [3]Color) -> Paint {
 	}
 }
 
-make_atlas_sample :: proc(source, target: Box, tint: Color) -> Paint {
-	source := Box{source.lo / core.atlas_size, source.hi / core.atlas_size}
+make_atlas_sample :: proc(resource: ^Atlas_Resource, target: Box, tint: Color) -> Paint {
+	source := atlas_get(&core.font_atlas, resource)
 	return Paint {
 		kind = .Atlas_Sample,
-		cv0 = source.lo,
-		cv1 = source.hi - source.lo,
+		cv0 = (source.lo) / core.font_atlas.size,
+		cv1 = (source.hi - source.lo) / core.font_atlas.size,
 		cv2 = target.lo,
 		cv3 = target.hi - target.lo,
 		col0 = normalize_color(tint),
