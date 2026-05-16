@@ -388,7 +388,7 @@ Line_Join_Style :: enum {
 add_lines :: proc(
 	points: [][2]f32,
 	width: f32,
-	closed: bool = false,
+	closed: bool = true,
 	join_style: Line_Join_Style = .Round,
 	paint: Paint_Option = nil,
 ) {
@@ -399,6 +399,9 @@ add_lines :: proc(
 	case .Round:
 		for i in 0 ..< len(points) - 1 {
 			add_line(points[i], points[i + 1], width, paint)
+		}
+		if closed {
+			add_line(points[len(points) - 1], points[0], width, paint)
 		}
 	case .Miter:
 		v0, v1: [2]f32
@@ -665,3 +668,4 @@ add_vertices :: proc(vertices: ..[2]f32) -> u32 {
 	append(&core.renderer.cvs.data, ..vertices)
 	return index
 }
+
